@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# set ganache params and predefined accounts
+PARAMS=(
+  --quiet
+  $CUSTOM_START_PARAMS
+  # Account address: 0x9Cc2F0FD184E93049A9a6C6C63bc258A39D4B54D
+  --account="0xbb39aa88008bc6260ff9ebc816178c47a01c44efe55810ea1f271c00f5878812,100000000000000000000"
+  # Account address: 0x5A4b203939F9757A703e009fA9B733Cf33d5821b
+  --account="0x29c8b4ff78e41dafd561f5cd4a90103faf20a5b509a4b6281947b8fcdcfa8f71,100000000000000000000"
+  # Account address: 0x1db6B698FFEF5b162694202Fb8e29Fb48536Bfe2
+  --account="0x460503be96e3b97c2d6fb737bef83d89df42e4a36adef2e8fb4f0976b70d1b2a,100000000000000000000"
+  # Account address: 0x7E618Ee2D08fcb730f3fd8C3F4e7C7Fd1A166ABD
+  --account="0x1516a467486cd4340e5f0e8193eea05c9106bb0dce26a03047580c25c9191f93,100000000000000000000"
+)
+
+node /app/ganache-core.docker.cli.js ${PARAMS[@]}

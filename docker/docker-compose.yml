@@ -1,0 +1,22 @@
+version: '3.9'
+
+networks:
+  artion_contracts_network:
+    driver: bridge
+
+services:
+  ganache-cli:
+    build:
+      context: ./ganache-cli
+    environment:
+      - CUSTOM_START_PARAMS=${GANACHE_START_PARAMS:-""}
+    ports:
+      - ${GANACHE_HOST_PORT:-8545}:8545
+    networks:
+      - artion_contracts_network
+  brownie:
+    build:
+      context: ./brownie
+    command: tail -f /dev/null
+    networks:
+      - artion_contracts_network
