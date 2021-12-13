@@ -13,9 +13,14 @@ cp .env.example .env
 docker-compose build --no-cache
 ```
 
-### Run ganache
+### Run containers
 ```bash
-docker-compose up ganache-cli
+docker-compose up -d
 ```
 By default, port `8545` will be open on your computer. If you need to change it or change other parameters at startup, 
 you can do so in the `.env` file.
+
+### Connect to brownie container
+```bash
+docker-compose exec brownie bash
+```

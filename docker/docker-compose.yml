@@ -18,5 +18,12 @@ services:
     build:
       context: ./brownie
     command: tail -f /dev/null
+    volumes:
+      - ../contracts:/home/user/contracts
+      - ../interfaces:/home/user/interfaces
+      - ../scripts:/home/user/scripts
+      - ../tests:/home/user/tests
+      - ../build:/home/user/build
+      - ../reports:/home/user/reports
     networks:
       - artion_contracts_network
