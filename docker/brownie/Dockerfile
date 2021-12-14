@@ -21,8 +21,11 @@ RUN addgroup -g ${PGID} brownie \
 # Set default user
 USER user
 
-# Update default network host to point on ganache-cli container
-RUN brownie networks modify development host=http://ganache-cli
+# Create directory for project
+RUN mkdir /home/user/artion
 
 # Set working directory
-WORKDIR /home/user
+WORKDIR /home/user/artion
+
+# Update default network host to point on ganache-cli container
+RUN brownie networks modify development host=http://ganache-cli
