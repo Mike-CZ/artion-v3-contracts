@@ -25,5 +25,6 @@ services:
       - ../tests:/home/user/artion/tests
       - ../build:/home/user/artion/build
       - ../reports:/home/user/artion/reports
+      - ../brownie-config.yml:/home/user/artion/brownie-config.yml
     networks:
       - artion_contracts_network

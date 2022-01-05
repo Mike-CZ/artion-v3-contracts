@@ -1,0 +1,20 @@
+networks:
+    default: development
+
+dependencies:
+    - OpenZeppelin/openzeppelin-contracts@4.4.1
+
+compiler:
+    solc:
+        version: 0.8.10
+        remappings:
+            - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.4.1"
+
+reports:
+    exclude_contracts:
+        - ERC20
+        - Ownable
+        - Context
+        - Counters
+
+autofetch_sources: true
