@@ -20,7 +20,7 @@ contract PaymentTokenRegistry is Ownable {
     /**
     * @notice Method for adding payment token
     * @dev Only admin
-    * @param token ERC20 token address
+    * @param _token ERC20 token address
     */
     function add(address _token) external onlyOwner {
         require(! enabled[_token], "PaymentTokenRegistry: payment token already added");
@@ -31,7 +31,7 @@ contract PaymentTokenRegistry is Ownable {
     /**
     * @notice Method for removing payment token
     * @dev Only admin
-    * @param token ERC20 token address
+    * @param _token ERC20 token address
     */
     function remove(address _token) external onlyOwner {
         require(enabled[_token], "PaymentTokenRegistry: payment token does not exist");
