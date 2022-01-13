@@ -3,12 +3,13 @@ networks:
 
 dependencies:
     - OpenZeppelin/openzeppelin-contracts@4.4.1
-
+    - OpenZeppelin/openzeppelin-contracts-upgradeable@4.4.1
 compiler:
     solc:
         version: 0.8.10
         remappings:
-            - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.4.1"
+            - "openzeppelin=OpenZeppelin/openzeppelin-contracts@4.4.1"
+            - "openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.4.1"
 
 reports:
     exclude_contracts:

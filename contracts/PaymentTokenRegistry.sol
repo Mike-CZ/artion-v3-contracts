@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "openzeppelin/contracts/access/Ownable.sol";
 
 /**
-* @notice Payment token registry module which stores available
-* payment tokens for artion.
+* @title Payment token registry
+* @notice Module which stores available payment tokens for artion.
 */
 contract PaymentTokenRegistry is Ownable {
     event PaymentTokenAdded(address token);

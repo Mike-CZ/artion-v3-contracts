@@ -13,6 +13,9 @@ cp .env.example .env
 docker-compose build --no-cache
 ```
 
+### Project setup
+Before running containers, run script `setup.sh` on your machine.
+
 ### Run containers
 ```bash
 docker-compose up -d
@@ -24,3 +27,7 @@ you can do so in the `.env` file.
 ```bash
 docker-compose exec brownie bash
 ```
+
+### Intellij package discovery
+To be able to navigate through packages (OpenZeppelin) files, you have to first connect to brownie container and build project.
+All packages will be automatically downloaded. Then disconnect from container and run script `ide_helper.sh` on your machine.

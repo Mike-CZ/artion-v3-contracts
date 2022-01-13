@@ -19,12 +19,7 @@ services:
       context: ./brownie
     command: tail -f /dev/null
     volumes:
-      - ../contracts:/home/user/artion/contracts
-      - ../interfaces:/home/user/artion/interfaces
-      - ../scripts:/home/user/artion/scripts
-      - ../tests:/home/user/artion/tests
-      - ../build:/home/user/artion/build
-      - ../reports:/home/user/artion/reports
-      - ../brownie-config.yml:/home/user/artion/brownie-config.yml
+      - ../:/home/user/artion
+      - ./.data/brownie:/home/user/.brownie
     networks:
       - artion_contracts_network
