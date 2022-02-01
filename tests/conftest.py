@@ -1,5 +1,5 @@
 import pytest
-from brownie import PaymentTokenRegistry, accounts
+from brownie import PaymentTokenRegistry, ERC721CollectionFactory, accounts
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -11,8 +11,14 @@ def isolate(fn_isolation):
 
 @pytest.fixture(scope="module")
 def payment_token_registry():
-    ptr = accounts[0].deploy(PaymentTokenRegistry)
-    return ptr
+    contract = accounts[0].deploy(PaymentTokenRegistry)
+    return contract
+
+
+@pytest.fixture(scope="module")
+def erc721_collection_factory():
+    contract = accounts[0].deploy(ERC721CollectionFactory, 5000000000000000000, accounts[0])
+    return contract
 
 
 @pytest.fixture(scope="session")
