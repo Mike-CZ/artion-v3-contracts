@@ -4,9 +4,12 @@ pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/access/Ownable.sol";
 import "openzeppelin/contracts/utils/math/SafeMath.sol";
+import "openzeppelin/contracts/utils/Address.sol";
+import "./extensions/ERC2981SettableRoyalty.sol";
+import "./library/ERC2981.sol";
 import "openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-contract ERC721Collection is ERC721URIStorage, Ownable {
+contract ERC721Collection is Ownable, ERC721URIStorage, ERC2981SettableRoyalty {
     using SafeMath for uint256;
     using Address for address payable;
 
@@ -39,8 +42,15 @@ contract ERC721Collection is ERC721URIStorage, Ownable {
      * @param beneficiary Recipient of the NFT
      * @param tokenUri URI for the token being minted
      * @return uint256 The token ID of the token that was minted
+     * @param royaltyRecipient The receiver of royalty
+     * @param royaltyPercent The royalty percentage (using 2 decimals - 10000 = 100%, 0 = 0%)
      */
-    function mint(address beneficiary, string calldata tokenUri) external payable returns (uint256) {
+    function mint(
+        address beneficiary,
+        string calldata tokenUri,
+        address royaltyRecipient,
+        uint16 royaltyPercent
+    ) external payable returns (uint256) {
         // only owner can mint tokens when collection is marked as private
         if (_isPrivate) {
             require(owner() == _msgSender(), "ERC721Collection: only owner can mint tokens");
@@ -49,7 +59,6 @@ contract ERC721Collection is ERC721URIStorage, Ownable {
         // validate parameters
         require(msg.value >= _mintFee, "ERC721Collection: insufficient funds to mint");
         require(bytes(tokenUri).length > 0, "ERC721Collection: token URI for minting is empty");
-        require(_msgSender() != address(0), "ERC721Collection: minter is zero address");
 
         // increment id of latest minted token
         _latestTokenId = _latestTokenId.add(1);
@@ -59,7 +68,10 @@ contract ERC721Collection is ERC721URIStorage, Ownable {
         _safeMint(beneficiary, tokenId);
         _setTokenURI(tokenId, tokenUri);
 
-        // TODO: Royalty settings
+        // set token royalty
+        if (royaltyPercent > 0) {
+            _setTokenRoyalty(tokenId, royaltyRecipient, royaltyPercent);
+        }
 
         // send fee to fee recipient
         _mintFeeRecipient.sendValue(msg.value);

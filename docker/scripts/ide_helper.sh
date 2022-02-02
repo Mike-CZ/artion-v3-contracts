@@ -3,7 +3,7 @@
 ## Create symlink for intellij to be able to find package files
 ## See more: https://github.com/intellij-solidity/intellij-solidity/issues/246
 
-OPEN_ZEPPELIN_VERSION=4.4.1
+OPEN_ZEPPELIN_VERSION=4.5.0-rc.0
 
 SCRIPTS_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 DOCKER_DIR=$(dirname "$SCRIPTS_DIR")
