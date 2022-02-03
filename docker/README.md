@@ -31,3 +31,6 @@ docker-compose exec brownie bash
 ### Intellij package discovery
 To be able to navigate through packages (OpenZeppelin) files, you have to first connect to brownie container and build project.
 All packages will be automatically downloaded. Then disconnect from container and run script `ide_helper.sh` on your machine.
+
+### macOS X11 forwarding
+To make brownie gui work, install [xquartz](https://gist.github.com/cschiewek/246a244ba23da8b9f0e7b11a68bf3285)
