@@ -17,7 +17,6 @@ services:
   brownie:
     build:
       context: ./brownie
-    command: tail -f /dev/null
     volumes:
       - ../:/home/user/artion
       - ./.data/brownie:/home/user/.brownie
