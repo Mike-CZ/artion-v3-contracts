@@ -14,3 +14,15 @@ if [[ ! -d ${BROWNIE_DATA_PATH} ]]; then
     echo "Creating brownie data directory: ${BROWNIE_DATA_PATH}";
     mkdir ${BROWNIE_DATA_PATH};
 fi
+
+SOLC_DATA_PATH="$DATA_PATH/solc";
+if [[ ! -d ${SOLC_DATA_PATH} ]]; then
+    echo "Creating solc data directory: ${SOLC_DATA_PATH}";
+    mkdir ${SOLC_DATA_PATH};
+fi
+
+SOLCX_DATA_PATH="$DATA_PATH/solcx";
+if [[ ! -d ${SOLCX_DATA_PATH} ]]; then
+    echo "Creating solcx data directory: ${SOLCX_DATA_PATH}";
+    mkdir ${SOLCX_DATA_PATH};
+fi

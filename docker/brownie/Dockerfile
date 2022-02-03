@@ -5,6 +5,8 @@ ENV PUID ${PUID}
 ARG PGID=1000
 ENV PGID ${PGID}
 
+COPY entrypoint.sh /app/
+
 # Update package manager and install required dependencies
 RUN apt-get update \
     && apt-get install -y build-essential tk
@@ -27,5 +29,4 @@ RUN mkdir /home/user/artion
 # Set working directory
 WORKDIR /home/user/artion
 
-# Update default network host to point on ganache-cli container
-RUN brownie networks modify development host=http://ganache-cli
+ENTRYPOINT ["bash", "/app/entrypoint.sh"]
