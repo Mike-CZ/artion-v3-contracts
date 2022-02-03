@@ -5,15 +5,16 @@ pragma solidity ^0.8.0;
 import "openzeppelin/contracts/access/Ownable.sol";
 import "openzeppelin/contracts/utils/math/SafeMath.sol";
 import "openzeppelin/contracts/utils/Address.sol";
-import "./extensions/ERC2981SettableRoyalty.sol";
+import "./extensions/ERC2981Settable.sol";
 import "./library/ERC2981.sol";
 import "openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-contract ERC721Collection is Ownable, ERC721URIStorage, ERC2981SettableRoyalty {
+contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
     using SafeMath for uint256;
     using Address for address payable;
 
-    event Minted(uint256 tokenId, address beneficiary, string tokenUri, address minter);
+    event Minted(uint256 tokenId, address tokenRecipient, string tokenUri, address minter);
     event UpdatedMintFee(uint256 mintFee);
     event UpdatedMintFeeRecipient(address payable mintFeeRecipient);
 
@@ -38,15 +39,30 @@ contract ERC721Collection is Ownable, ERC721URIStorage, ERC2981SettableRoyalty {
     }
 
     /**
-     * @notice Mints a NFT AND when minting to a contract checks if the beneficiary is a 721 compatible
-     * @param beneficiary Recipient of the NFT
+     * @notice Validates user is authorized for token manipulation
+     * @param tokenId The token identifier
+     */
+    modifier tokenAuth(uint256 tokenId) {
+        address owner = ownerOf(tokenId);
+        address operator = _msgSender();
+        // only owner or approved operator can manipulate with tokens
+        require(
+            owner == operator || getApproved(tokenId) == operator || isApprovedForAll(owner, operator),
+            "ERC721Collection: only owner or approved can manipulate with tokens"
+        );
+        _;
+    }
+
+    /**
+     * @notice Mint new token
+     * @param tokenRecipient Recipient of the token
      * @param tokenUri URI for the token being minted
      * @return uint256 The token ID of the token that was minted
      * @param royaltyRecipient The receiver of royalty
      * @param royaltyPercent The royalty percentage (using 2 decimals - 10000 = 100%, 0 = 0%)
      */
     function mint(
-        address beneficiary,
+        address tokenRecipient,
         string calldata tokenUri,
         address royaltyRecipient,
         uint16 royaltyPercent
@@ -65,7 +81,7 @@ contract ERC721Collection is Ownable, ERC721URIStorage, ERC2981SettableRoyalty {
         uint256 tokenId = _latestTokenId;
 
         // mint token
-        _safeMint(beneficiary, tokenId);
+        _safeMint(tokenRecipient, tokenId);
         _setTokenURI(tokenId, tokenUri);
 
         // set token royalty
@@ -73,16 +89,57 @@ contract ERC721Collection is Ownable, ERC721URIStorage, ERC2981SettableRoyalty {
             _setTokenRoyalty(tokenId, royaltyRecipient, royaltyPercent);
         }
 
-        // send fee to fee recipient
+        // send recipient
         _mintFeeRecipient.sendValue(msg.value);
 
-        emit Minted(tokenId, beneficiary, tokenUri, _msgSender());
+        emit Minted(tokenId, tokenRecipient, tokenUri, _msgSender());
 
         return tokenId;
     }
 
     /**
-    * @notice Method for updating mint fee
+     @notice Burns given token
+     @param tokenId The token ID to burn
+     */
+    function burn(uint256 tokenId) external tokenAuth(tokenId) {
+        _burn(tokenId);
+        _resetTokenRoyalty(tokenId);
+    }
+
+    /**
+     * @dev See {IERC2981RoyaltySetter-setDefaultRoyalty}.
+     */
+    function setDefaultRoyalty(address recipient, uint16 royaltyPercent) public override onlyOwner {
+        super.setDefaultRoyalty(recipient, royaltyPercent);
+    }
+
+    /**
+     * @dev See {IERC2981RoyaltySetter-setTokenRoyalty}.
+     */
+    function setTokenRoyalty(
+        uint256 tokenId,
+        address recipient,
+        uint16 royaltyPercent
+    ) public override tokenAuth(tokenId) {
+        super.setTokenRoyalty(tokenId, recipient, royaltyPercent);
+    }
+
+    /**
+     * @dev See {IERC2981RoyaltySetter-updateDefaultRoyaltyRecipient}.
+     */
+    function updateDefaultRoyaltyRecipient(address recipient) public override onlyOwner {
+        super.updateDefaultRoyaltyRecipient(recipient);
+    }
+
+    /**
+     * @dev See {IERC2981RoyaltySetter-updateTokenRoyaltyRecipient}.
+     */
+    function updateTokenRoyaltyRecipient(uint256 tokenId, address recipient) public override tokenAuth(tokenId) {
+        super.updateTokenRoyaltyRecipient(tokenId, recipient);
+    }
+
+    /**
+    * @notice Update mint fee
     * @param mintFee uint256 the mint fee to set
     */
     function updateMintFee(uint256 mintFee) external onlyOwner {
@@ -91,11 +148,18 @@ contract ERC721Collection is Ownable, ERC721URIStorage, ERC2981SettableRoyalty {
     }
 
     /**
-    * @notice Method for updating mint fee address
+    * @notice Update mint fee address
     * @param mintFeeRecipient address payable the address to sends the funds to
     */
     function updateMintFeeRecipient(address payable mintFeeRecipient) external onlyOwner {
         _mintFeeRecipient = mintFeeRecipient;
         emit UpdatedMintFeeRecipient(_mintFeeRecipient);
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981Settable) returns (bool) {
+        return ERC2981Settable.supportsInterface(interfaceId) || super.supportsInterface(interfaceId);
     }
 }

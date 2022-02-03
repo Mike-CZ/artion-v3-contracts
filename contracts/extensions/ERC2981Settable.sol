@@ -4,14 +4,13 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/IERC2981Settable.sol";
 import "../library/ERC2981.sol";
-import "openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-abstract contract ERC2981SettableRoyalty is ERC2981, IERC2981Settable, ERC721 {
+abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, ERC2981) returns (bool) {
-        return super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC2981) returns (bool) {
+        return interfaceId == type(IERC2981Settable).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**
@@ -61,13 +60,5 @@ abstract contract ERC2981SettableRoyalty is ERC2981, IERC2981Settable, ERC721 {
     */
     function _isDefaultRoyaltySet() internal view returns (bool) {
         return _defaultRoyaltyInfo.receiver != address(0);
-    }
-
-    /**
-     * @dev See {ERC721-_burn}. This override additionally clears the royalty information for the token.
-     */
-    function _burn(uint256 tokenId) internal virtual override {
-        super._burn(tokenId);
-        _resetTokenRoyalty(tokenId);
     }
 }
