@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/utils/Context.sol";
-import "./ERC721Collection.sol.test";
+import "./ERC721Collection.sol";
 
 /// @title Factory contract for deployment of ERC721 collections
 contract ERC721CollectionFactory is Context {

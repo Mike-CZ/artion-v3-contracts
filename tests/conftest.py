@@ -2,11 +2,14 @@ import pytest
 from brownie import PaymentTokenRegistry, ERC721CollectionFactory, accounts
 
 
-@pytest.fixture(scope="function", autouse=True)
-def isolate(fn_isolation):
-    # perform a chain rewind after completing each test, to ensure proper isolation
-    # https://eth-brownie.readthedocs.io/en/v1.10.3/tests-pytest-intro.html#isolation-fixtures
-    pass
+@pytest.fixture(scope="session")
+def user():
+    return accounts[0]
+
+
+@pytest.fixture(scope="session")
+def user_2():
+    return accounts[1]
 
 
 @pytest.fixture(scope="module")
@@ -28,3 +31,11 @@ def payment_token_addresses():
         "ZOO": "0x09e145A1D53c0045F41aEEf25D8ff982ae74dD56",
         "WFTM": "0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83"
     }
+
+
+@pytest.fixture(scope="function", autouse=True)
+def isolate(fn_isolation):
+    # perform a chain rewind after completing each test, to ensure proper isolation
+    # https://eth-brownie.readthedocs.io/en/v1.10.3/tests-pytest-intro.html#isolation-fixtures
+    pass
+

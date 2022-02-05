@@ -45,10 +45,9 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
     modifier tokenAuth(uint256 tokenId) {
         address owner = ownerOf(tokenId);
         address operator = _msgSender();
-        // only owner or approved operator can manipulate with tokens
         require(
             owner == operator || getApproved(tokenId) == operator || isApprovedForAll(owner, operator),
-            "ERC721Collection: only owner or approved can manipulate with tokens"
+            "ERC721Collection: only owner or approved can manipulate with token"
         );
         _;
     }
@@ -89,7 +88,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
             _setTokenRoyalty(tokenId, royaltyRecipient, royaltyPercent);
         }
 
-        // send recipient
+        // send fee
         _mintFeeRecipient.sendValue(msg.value);
 
         emit Minted(tokenId, tokenRecipient, tokenUri, _msgSender());
@@ -99,17 +98,18 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
 
     /**
      @notice Burns given token
-     @param tokenId The token ID to burn
+     @param tokenId The token identifier
      */
     function burn(uint256 tokenId) external tokenAuth(tokenId) {
         _burn(tokenId);
+        // could not use OpenZeppelin ERC721Royalty extension because of "custom" ERC2981 implementation
         _resetTokenRoyalty(tokenId);
     }
 
     /**
      * @dev See {IERC2981RoyaltySetter-setDefaultRoyalty}.
      */
-    function setDefaultRoyalty(address recipient, uint16 royaltyPercent) public override onlyOwner {
+    function setDefaultRoyalty(address recipient, uint96 royaltyPercent) public override onlyOwner {
         super.setDefaultRoyalty(recipient, royaltyPercent);
     }
 
@@ -119,7 +119,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
     function setTokenRoyalty(
         uint256 tokenId,
         address recipient,
-        uint16 royaltyPercent
+        uint96 royaltyPercent
     ) public override tokenAuth(tokenId) {
         super.setTokenRoyalty(tokenId, recipient, royaltyPercent);
     }
