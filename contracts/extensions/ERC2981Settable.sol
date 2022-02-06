@@ -53,15 +53,15 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @param tokenId The token identifier
     * @return address
     */
-    function _receiverOfTokenRoyalty(uint256 tokenId) internal view returns (address) {
+    function _recipientOfTokenRoyalty(uint256 tokenId) internal view returns (address) {
         return _tokenRoyaltyInfo[tokenId].receiver;
     }
 
     /**
-    * @notice Get receiver of default royalty
+    * @notice Get recipient of default royalty
     * @return address
     */
-    function _receiverOfDefaultRoyalty() internal view returns (address) {
+    function _recipientOfDefaultRoyalty() internal view returns (address) {
         return _defaultRoyaltyInfo.receiver;
     }
 
@@ -88,7 +88,7 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @return bool
     */
     function _isTokenRoyaltySet(uint256 tokenId) internal view returns (bool) {
-        return _receiverOfTokenRoyalty(tokenId) != address(0);
+        return _recipientOfTokenRoyalty(tokenId) != address(0);
     }
 
     /**
@@ -96,6 +96,6 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @return bool
     */
     function _isDefaultRoyaltySet() internal view returns (bool) {
-        return _receiverOfDefaultRoyalty() != address(0);
+        return _recipientOfDefaultRoyalty() != address(0);
     }
 }

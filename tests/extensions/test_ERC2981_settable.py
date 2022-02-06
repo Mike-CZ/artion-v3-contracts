@@ -3,7 +3,6 @@ from brownie import reverts, ERC2981SettableMock
 from brownie.test import given, strategy
 from hypothesis import settings
 
-# number of examples for each test
 MAX_EXAMPLES = 10
 
 
@@ -20,7 +19,7 @@ def erc2981_settable(user):
 def test_set_default_royalty(erc2981_settable, address, royalty_percent):
     """Test setter for default royalty"""
     erc2981_settable.setDefaultRoyalty(address, royalty_percent)
-    assert erc2981_settable.receiverOfDefaultRoyalty() == address
+    assert erc2981_settable.recipientOfDefaultRoyalty() == address
     assert erc2981_settable.royaltyFractionOfDefault() == royalty_percent
 
 
@@ -36,14 +35,17 @@ def test_default_royalty_already_set(erc2981_settable, address, royalty_percent)
         erc2981_settable.setDefaultRoyalty(address, royalty_percent)
 
 
-@given(royalty_percent=strategy('uint96', max_value=10000))
+@given(
+    address=strategy('address'),
+    new_address=strategy('address'),
+    royalty_percent=strategy('uint96', max_value=10000),
+)
 @settings(max_examples=MAX_EXAMPLES)
-def test_default_royalty_update_recipient(erc2981_settable, user, user_2, royalty_percent):
+def test_default_royalty_update_recipient(erc2981_settable, address, new_address, royalty_percent):
     """Test default royalty recipient update"""
-    erc2981_settable.setDefaultRoyalty(user.address, royalty_percent)
-    erc2981_settable.updateDefaultRoyaltyRecipient(user_2.address)
-    assert user_2.address == erc2981_settable.receiverOfDefaultRoyalty()
-    assert user.address != erc2981_settable.receiverOfDefaultRoyalty()
+    erc2981_settable.setDefaultRoyalty(address, royalty_percent)
+    erc2981_settable.updateDefaultRoyaltyRecipient(new_address)
+    assert new_address == erc2981_settable.recipientOfDefaultRoyalty()
 
 
 @given(address=strategy('address'))
@@ -63,7 +65,7 @@ def test_default_royalty_update_recipient_not_set(erc2981_settable, address):
 def test_set_token_royalty(erc2981_settable, address, royalty_percent, token_id):
     """Test setter for token royalty"""
     erc2981_settable.setTokenRoyalty(token_id, address, royalty_percent)
-    assert erc2981_settable.receiverOfTokenRoyalty(token_id) == address
+    assert erc2981_settable.recipientOfTokenRoyalty(token_id) == address
     assert erc2981_settable.royaltyFractionOfToken(token_id) == royalty_percent
 
 
@@ -81,16 +83,17 @@ def test_token_royalty_already_set(erc2981_settable, address, royalty_percent, t
 
 
 @given(
+    address=strategy('address'),
+    new_address=strategy('address'),
     royalty_percent=strategy('uint96', max_value=10000),
     token_id=strategy('uint256', min_value=1),
 )
 @settings(max_examples=MAX_EXAMPLES)
-def test_token_royalty_update_recipient(erc2981_settable, token_id, user, user_2, royalty_percent):
+def test_token_royalty_update_recipient(erc2981_settable, token_id, address, new_address, royalty_percent):
     """Test token royalty recipient update"""
-    erc2981_settable.setTokenRoyalty(token_id, user.address, royalty_percent)
-    erc2981_settable.updateTokenRoyaltyRecipient(token_id, user_2.address)
-    assert user_2.address == erc2981_settable.receiverOfTokenRoyalty(token_id)
-    assert user.address != erc2981_settable.receiverOfTokenRoyalty(token_id)
+    erc2981_settable.setTokenRoyalty(token_id, address, royalty_percent)
+    erc2981_settable.updateTokenRoyaltyRecipient(token_id, new_address)
+    assert new_address == erc2981_settable.recipientOfTokenRoyalty(token_id)
 
 
 @given(

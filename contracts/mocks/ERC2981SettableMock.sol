@@ -5,12 +5,12 @@ pragma solidity ^0.8.0;
 import "../extensions/ERC2981Settable.sol";
 
 contract ERC2981SettableMock is ERC2981Settable {
-    function receiverOfTokenRoyalty(uint256 tokenId) public view returns (address) {
-        return _receiverOfTokenRoyalty(tokenId);
+    function recipientOfTokenRoyalty(uint256 tokenId) public view returns (address) {
+        return _recipientOfTokenRoyalty(tokenId);
     }
 
-    function receiverOfDefaultRoyalty() public view returns (address) {
-        return _receiverOfDefaultRoyalty();
+    function recipientOfDefaultRoyalty() public view returns (address) {
+        return _recipientOfDefaultRoyalty();
     }
 
     function royaltyFractionOfToken(uint256 tokenId) public view returns (uint96) {
