@@ -53,7 +53,7 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @param tokenId The token identifier
     * @return address
     */
-    function _recipientOfTokenRoyalty(uint256 tokenId) internal view returns (address) {
+    function _getRecipientOfTokenRoyalty(uint256 tokenId) internal view returns (address) {
         return _tokenRoyaltyInfo[tokenId].receiver;
     }
 
@@ -61,7 +61,7 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @notice Get recipient of default royalty
     * @return address
     */
-    function _recipientOfDefaultRoyalty() internal view returns (address) {
+    function _getRecipientOfDefaultRoyalty() internal view returns (address) {
         return _defaultRoyaltyInfo.receiver;
     }
 
@@ -70,7 +70,7 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @param tokenId The token identifier
     * @return uint96
     */
-    function _royaltyFractionOfToken(uint256 tokenId) internal view returns (uint96) {
+    function _getRoyaltyFractionOfToken(uint256 tokenId) internal view returns (uint96) {
         return _tokenRoyaltyInfo[tokenId].royaltyFraction;
     }
 
@@ -78,7 +78,7 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @notice Get default royalty fraction
     * @return uint96
     */
-    function _royaltyFractionOfDefault() internal view returns (uint96) {
+    function _getRoyaltyFractionOfDefault() internal view returns (uint96) {
         return _defaultRoyaltyInfo.royaltyFraction;
     }
 
@@ -88,7 +88,7 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @return bool
     */
     function _isTokenRoyaltySet(uint256 tokenId) internal view returns (bool) {
-        return _recipientOfTokenRoyalty(tokenId) != address(0);
+        return _getRecipientOfTokenRoyalty(tokenId) != address(0);
     }
 
     /**
@@ -96,6 +96,6 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
     * @return bool
     */
     function _isDefaultRoyaltySet() internal view returns (bool) {
-        return _recipientOfDefaultRoyalty() != address(0);
+        return _getRecipientOfDefaultRoyalty() != address(0);
     }
 }

@@ -6,18 +6,18 @@ import "../extensions/ERC2981Settable.sol";
 
 contract ERC2981SettableMock is ERC2981Settable {
     function recipientOfTokenRoyalty(uint256 tokenId) public view returns (address) {
-        return _recipientOfTokenRoyalty(tokenId);
+        return _getRecipientOfTokenRoyalty(tokenId);
     }
 
     function recipientOfDefaultRoyalty() public view returns (address) {
-        return _recipientOfDefaultRoyalty();
+        return _getRecipientOfDefaultRoyalty();
     }
 
     function royaltyFractionOfToken(uint256 tokenId) public view returns (uint96) {
-        return _royaltyFractionOfToken(tokenId);
+        return _getRoyaltyFractionOfToken(tokenId);
     }
 
     function royaltyFractionOfDefault() public view returns (uint96) {
-        return _royaltyFractionOfDefault();
+        return _getRoyaltyFractionOfDefault();
     }
 }

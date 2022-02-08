@@ -15,6 +15,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
     using Address for address payable;
 
     event Minted(uint256 tokenId, address tokenRecipient, string tokenUri, address minter);
+    event Burned(uint256 tokenId, address caller);
     event UpdatedMintFee(uint256 mintFee);
     event UpdatedMintFeeRecipient(address payable mintFeeRecipient);
 
@@ -31,11 +32,11 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
         string memory symbol,
         uint256 mintFee,
         address payable mintFeeRecipient,
-        bool isPrivate
+        bool privateFlag
     ) ERC721(name, symbol) {
         _mintFee = mintFee;
         _mintFeeRecipient = mintFeeRecipient;
-        _isPrivate = isPrivate;
+        _isPrivate = privateFlag;
     }
 
     /**
@@ -104,6 +105,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
         _burn(tokenId);
         // could not use OpenZeppelin ERC721Royalty extension because of "custom" ERC2981 implementation
         _resetTokenRoyalty(tokenId);
+        emit Burned(tokenId, _msgSender());
     }
 
     /**
@@ -154,6 +156,30 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
     function updateMintFeeRecipient(address payable mintFeeRecipient) external onlyOwner {
         _mintFeeRecipient = mintFeeRecipient;
         emit UpdatedMintFeeRecipient(_mintFeeRecipient);
+    }
+
+    /**
+     * @notice Get mint fee
+     * @return uint256
+     */
+    function getMintFee() external view returns (uint256) {
+        return _mintFee;
+    }
+
+    /**
+     * @notice Get mint fee recipient
+     * @return address
+     */
+    function getMintFeeRecipient() external view returns (address) {
+        return _mintFeeRecipient;
+    }
+
+    /**
+     * @notice Get isPrivate flag
+     * @return bool
+     */
+    function isPrivate() external view returns (bool) {
+        return _isPrivate;
     }
 
     /**
