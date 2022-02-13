@@ -3,7 +3,8 @@ from brownie import reverts, ERC2981SettableMock
 from brownie.test import given, strategy
 from hypothesis import settings
 
-MAX_EXAMPLES = 10
+
+MAX_EXAMPLES = 5
 
 
 @pytest.fixture(scope='module')
@@ -21,18 +22,6 @@ def test_set_default_royalty(erc2981_settable, address, royalty_percent):
     erc2981_settable.setDefaultRoyalty(address, royalty_percent)
     assert erc2981_settable.recipientOfDefaultRoyalty() == address
     assert erc2981_settable.royaltyFractionOfDefault() == royalty_percent
-
-
-@given(
-    address=strategy('address'),
-    royalty_percent=strategy('uint96', max_value=10000),
-)
-@settings(max_examples=MAX_EXAMPLES)
-def test_default_royalty_already_set(erc2981_settable, address, royalty_percent):
-    """Test default royalty can be set only once"""
-    erc2981_settable.setDefaultRoyalty(address, royalty_percent)
-    with reverts('ERC2981Settable: default royalty already set'):
-        erc2981_settable.setDefaultRoyalty(address, royalty_percent)
 
 
 @given(
@@ -67,19 +56,6 @@ def test_set_token_royalty(erc2981_settable, address, royalty_percent, token_id)
     erc2981_settable.setTokenRoyalty(token_id, address, royalty_percent)
     assert erc2981_settable.recipientOfTokenRoyalty(token_id) == address
     assert erc2981_settable.royaltyFractionOfToken(token_id) == royalty_percent
-
-
-@given(
-    address=strategy('address'),
-    royalty_percent=strategy('uint96', max_value=10000),
-    token_id=strategy('uint256', min_value=1),
-)
-@settings(max_examples=MAX_EXAMPLES)
-def test_token_royalty_already_set(erc2981_settable, address, royalty_percent, token_id):
-    """Test token royalty can be set only once"""
-    erc2981_settable.setTokenRoyalty(token_id, address, royalty_percent)
-    with reverts('ERC2981Settable: token royalty already set'):
-        erc2981_settable.setTokenRoyalty(token_id, address, royalty_percent)
 
 
 @given(

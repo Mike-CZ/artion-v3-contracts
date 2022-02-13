@@ -112,6 +112,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
      * @dev See {IERC2981RoyaltySetter-setDefaultRoyalty}.
      */
     function setDefaultRoyalty(address recipient, uint96 royaltyPercent) public override onlyOwner {
+        require(! _isDefaultRoyaltySet(), "ERC721Collection: default royalty already set");
         super.setDefaultRoyalty(recipient, royaltyPercent);
     }
 
@@ -123,6 +124,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
         address recipient,
         uint96 royaltyPercent
     ) public override tokenAuth(tokenId) {
+        require(! _isTokenRoyaltySet(tokenId), "ERC721Collection: token royalty already set");
         super.setTokenRoyalty(tokenId, recipient, royaltyPercent);
     }
 

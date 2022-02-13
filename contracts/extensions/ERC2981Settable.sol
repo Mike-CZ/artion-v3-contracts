@@ -8,12 +8,11 @@ import "../library/ERC2981.sol";
 /**
 * @dev See {IERC2981Settable}.
 */
-abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
+abstract contract ERC2981Settable is IERC2981Settable, ERC2981 {
     /**
      * @dev See {IERC2981Settable-setDefaultRoyalty}.
      */
     function setDefaultRoyalty(address recipient, uint96 royaltyPercent) public virtual {
-        require(! _isDefaultRoyaltySet(), "ERC2981Settable: default royalty already set");
         _setDefaultRoyalty(recipient, royaltyPercent);
     }
 
@@ -21,7 +20,6 @@ abstract contract ERC2981Settable is ERC2981, IERC2981Settable {
      * @dev See {IERC2981Settable-setTokenRoyalty}.
      */
     function setTokenRoyalty(uint256 tokenId, address recipient, uint96 royaltyPercent) public virtual {
-        require(! _isTokenRoyaltySet(tokenId), "ERC2981Settable: token royalty already set");
         _setTokenRoyalty(tokenId, recipient, royaltyPercent);
     }
 
