@@ -57,9 +57,9 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
      * @notice Mint new token
      * @param tokenRecipient Recipient of the token
      * @param tokenUri URI for the token being minted
-     * @return uint256 The token ID of the token that was minted
      * @param royaltyRecipient The receiver of royalty
      * @param royaltyPercent The royalty percentage (using 2 decimals - 10000 = 100%, 0 = 0%)
+     * @return uint256 The token ID of the token that was minted
      */
     function mint(
         address tokenRecipient,
@@ -76,13 +76,8 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
         require(msg.value >= _mintFee, "ERC721Collection: insufficient funds to mint");
         require(bytes(tokenUri).length > 0, "ERC721Collection: token URI for minting is empty");
 
-        // increment id of latest minted token
-        _latestTokenId = _latestTokenId.add(1);
-        uint256 tokenId = _latestTokenId;
-
         // mint token
-        _safeMint(tokenRecipient, tokenId);
-        _setTokenURI(tokenId, tokenUri);
+        uint256 tokenId = _mintAndGetTokenId(tokenRecipient, tokenUri);
 
         // set token royalty
         if (royaltyPercent > 0) {
@@ -189,5 +184,31 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
      */
     function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC2981Settable) returns (bool) {
         return ERC2981Settable.supportsInterface(interfaceId) || super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @notice Mint new token and return token id
+     * @param tokenRecipient Recipient of the token
+     * @param tokenUri URI for the token being minted
+     * @return uint256 The token ID of the token that was minted
+     */
+    function _mintAndGetTokenId(address tokenRecipient, string memory tokenUri) internal returns (uint256) {
+         // increment id of latest minted token
+        _latestTokenId = _latestTokenId.add(1);
+        uint256 tokenId = _latestTokenId;
+
+        // mint token
+        _safeMint(tokenRecipient, tokenId);
+        _setTokenURI(tokenId, tokenUri);
+
+        return tokenId;
+    }
+
+    /**
+     * @notice Get latest token id
+     * @return uint256
+     */
+    function _getLatestTokenId() internal view returns (uint256) {
+        return _latestTokenId;
     }
 }

@@ -16,6 +16,7 @@ reports:
         - ERC20
         - Ownable
         - Context
-        - Counters
+        - ERC721
+        - ERC721URIStorage
 
 autofetch_sources: true
