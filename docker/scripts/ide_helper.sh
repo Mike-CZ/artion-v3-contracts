@@ -3,11 +3,12 @@
 ## Create symlink for intellij to be able to find package files
 ## See more: https://github.com/intellij-solidity/intellij-solidity/issues/246
 
-OPEN_ZEPPELIN_VERSION=4.4.1
-
 SCRIPTS_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 DOCKER_DIR=$(dirname "$SCRIPTS_DIR")
 ROOT_DIR=$(dirname "$DOCKER_DIR")
+
+# read open zeppelin version from config file
+OPEN_ZEPPELIN_VERSION=$(sed -n -e 's/^.*OpenZeppelin\/openzeppelin-contracts@//p' $ROOT_DIR/brownie-config.yml | head -1 | xargs)
 
 NODE_MODULES_PATH="$ROOT_DIR/node_modules";
 if [[ ! -d ${NODE_MODULES_PATH} ]]; then

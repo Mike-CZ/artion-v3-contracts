@@ -2,20 +2,21 @@ networks:
     default: development
 
 dependencies:
-    - OpenZeppelin/openzeppelin-contracts@4.4.1
-    - OpenZeppelin/openzeppelin-contracts-upgradeable@4.4.1
+    - OpenZeppelin/openzeppelin-contracts@4.5.0-rc.0
+    - OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0-rc.0
 compiler:
     solc:
         version: 0.8.10
         remappings:
-            - "openzeppelin=OpenZeppelin/openzeppelin-contracts@4.4.1"
-            - "openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.4.1"
+            - "openzeppelin=OpenZeppelin/openzeppelin-contracts@4.5.0-rc.0"
+            - "openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0-rc.0"
 
 reports:
     exclude_contracts:
         - ERC20
         - Ownable
         - Context
-        - Counters
+        - ERC721
+        - ERC721URIStorage
 
 autofetch_sources: true
