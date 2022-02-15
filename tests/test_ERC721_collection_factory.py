@@ -1,14 +1,14 @@
-from brownie import accounts, reverts, ERC721Collection
+from brownie import Wei, accounts, reverts, ERC721Collection
 
 class TestCreateERC721Collection:
-    create_collection_fee = 5000000000000000000  # fee recipient is accounts[0]
+    create_collection_fee = Wei("5 ether")  # fee recipient is accounts[0]
 
     def test_insufficient_funds(self, erc721_collection_factory):
         with reverts("ERC721CollectionFactory: Insufficient funds to create a collection"):
             erc721_collection_factory.createERC721Collection(
                 "TestToken",
                 "TT",
-                2000000000000000000,
+                Wei("2 ether"),
                 accounts[0],
                 False,
                 {"from": accounts[0], "value": 1}
@@ -20,7 +20,7 @@ class TestCreateERC721Collection:
         erc721_collection_factory.createERC721Collection(
             "TestToken",
             "TT",
-            2000000000000000000,
+            Wei("2 ether"),
             accounts[1],
             False,
             {"from": accounts[1], "value": self.create_collection_fee}
@@ -32,7 +32,7 @@ class TestCreateERC721Collection:
         tx = erc721_collection_factory.createERC721Collection(
             "TestToken",
             "TT",
-            2000000000000000000,
+            Wei("2 ether"),
             accounts[1],
             False,
             {"from": accounts[1], "value": self.create_collection_fee}
@@ -47,7 +47,7 @@ class TestCreateERC721Collection:
         tx = erc721_collection_factory.createERC721Collection(
             "TestToken",
             "TT",
-            2000000000000000000,
+            Wei("2 ether"),
             accounts[1],
             False,
             {"from": accounts[1], "value": self.create_collection_fee}
