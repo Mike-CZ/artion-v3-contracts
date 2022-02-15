@@ -1,5 +1,5 @@
 import pytest
-from brownie import reverts, Wei, ERC721CollectionMock
+from brownie import reverts, Wei, ERC721CollectionMock, accounts
 from utils.constants import COLLECTION_MINT_FEE, COLLECTION_NAME, COLLECTION_SYMBOL, COLLECTION_MINT_FEE
 
 
@@ -15,10 +15,11 @@ def erc721_collection_private_mock(owner):
     )
 
 
-def test_mint(erc721_collection_mock, owner, user):
+def test_mint(erc721_collection_mock, user):
     """Test minting"""
     latest_token_id = erc721_collection_mock.getLatestTokenId()
-    fee_recipient_initial_balance = owner.balance()
+    fee_recipient = accounts.at(erc721_collection_mock.getMintFeeRecipient())
+    fee_recipient_initial_balance = fee_recipient.balance()
 
     # mint token
     tx = erc721_collection_mock.mint(
@@ -32,7 +33,7 @@ def test_mint(erc721_collection_mock, owner, user):
     assert token_id == latest_token_id + 1
 
     # assert fee recipient received minting fee
-    assert owner.balance() == fee_recipient_initial_balance + COLLECTION_MINT_FEE
+    assert fee_recipient.balance() == fee_recipient_initial_balance + COLLECTION_MINT_FEE
 
     # assert event has been emitted
     assert tx.events['Minted'] is not None
