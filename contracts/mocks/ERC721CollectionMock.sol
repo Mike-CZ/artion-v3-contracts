@@ -22,14 +22,6 @@ contract ERC721CollectionMock is ERC721Collection {
         return _getRecipientOfDefaultRoyalty();
     }
 
-    function royaltyFractionOfToken(uint256 tokenId) public view returns (uint96) {
-        return _getRoyaltyFractionOfToken(tokenId);
-    }
-
-    function royaltyFractionOfDefault() public view returns (uint96) {
-        return _getRoyaltyFractionOfDefault();
-    }
-
     function getLatestTokenId() public view returns (uint256) {
         return _getLatestTokenId();
     }

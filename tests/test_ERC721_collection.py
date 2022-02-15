@@ -1,6 +1,18 @@
 import pytest
-from brownie import reverts, Wei
-from utils.constants import COLLECTION_MINT_FEE
+from brownie import reverts, Wei, ERC721CollectionMock
+from utils.constants import COLLECTION_MINT_FEE, COLLECTION_NAME, COLLECTION_SYMBOL, COLLECTION_MINT_FEE
+
+
+@pytest.fixture(scope="module")
+def erc721_collection_private_mock(owner):
+    return ERC721CollectionMock.deploy(
+        COLLECTION_NAME,
+        COLLECTION_SYMBOL,
+        COLLECTION_MINT_FEE,
+        owner.address,
+        True,
+        {'from': owner}
+    )
 
 
 def test_mint(erc721_collection_mock, owner, user):

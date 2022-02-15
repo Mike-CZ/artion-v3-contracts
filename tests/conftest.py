@@ -36,18 +36,6 @@ def erc721_collection_mock(owner):
 
 
 @pytest.fixture(scope="module")
-def erc721_collection_private_mock(owner):
-    return ERC721CollectionMock.deploy(
-        utils.constants.COLLECTION_NAME,
-        utils.constants.COLLECTION_SYMBOL,
-        utils.constants.COLLECTION_MINT_FEE,
-        owner.address,
-        True,
-        {'from': owner}
-    )
-
-
-@pytest.fixture(scope="function")
 def erc721_collection_mint(erc721_collection_mock):
     return lambda recipient, token_uri='some+uri', royalty_recipient=ZERO_ADDRESS, royalty_percent=0: \
         erc721_collection_mock.mintAndGetTokenId(recipient, token_uri, royalty_recipient, royalty_percent).return_value
