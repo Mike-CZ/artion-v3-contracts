@@ -1,6 +1,6 @@
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
 
-import "openzeppelin/contracts/interfaces/IERC2981.sol";
+pragma solidity ^0.8.0;
 
 /**
 * @title Address registry
@@ -8,8 +8,20 @@ import "openzeppelin/contracts/interfaces/IERC2981.sol";
 */
 interface IAddressRegistry {
     /**
+    * @notice Get ERC721 marketplace address
+    * @return address
+    */
+    function getERC721MarketplaceAddress() external view returns (address);
+
+    /**
     * @notice Get payment token registry address
     * @return address
     */
     function getPaymentTokenRegistryAddress() external view returns (address);
+
+    /**
+    * @notice Get royalty registry address
+    * @return address
+    */
+    function getRoyaltyRegistryAddress() external view returns (address);
 }
