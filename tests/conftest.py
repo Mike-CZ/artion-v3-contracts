@@ -25,8 +25,17 @@ def user_3():
 
 
 @pytest.fixture(scope="module")
-def erc1155_marketplace_mock(owner):
-    return ERC1155Marketplace.deploy({'from': owner})
+def payment_token_registry(owner):
+    contract = PaymentTokenRegistry.deploy({'from': owner})
+    contract.add(utils.constants.TOMB_TOKEN)
+    contract.add(utils.constants.ZOO_TOKEN)
+    contract.add(utils.constants.WFTM_TOKEN)
+    return contract
+
+
+@pytest.fixture(scope="module")
+def erc1155_marketplace_mock(payment_token_registry, owner):
+    return ERC1155Marketplace.deploy(payment_token_registry, {'from': owner})
 
 
 @pytest.fixture(scope="module")
@@ -56,16 +65,6 @@ def erc721_collection_mock(owner):
 def erc721_collection_mint(erc721_collection_mock):
     return lambda recipient, token_uri='some+uri', royalty_recipient=ZERO_ADDRESS, royalty_percent=0: \
         erc721_collection_mock.mintAndGetTokenId(recipient, token_uri, royalty_recipient, royalty_percent).return_value
-
-
-@pytest.fixture(scope="function")
-def payment_token_registry(owner, request):
-    contract = PaymentTokenRegistry.deploy({'from': owner})
-    if 'no_payment_token_registry_init' not in request.keywords:
-        contract.add(utils.constants.TOMB_TOKEN)
-        contract.add(utils.constants.ZOO_TOKEN)
-        contract.add(utils.constants.WFTM_TOKEN)
-    return contract
 
 
 @pytest.fixture(scope="module")

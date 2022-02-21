@@ -9,8 +9,9 @@ import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IMarketplaceBase.sol";
+import "../interfaces/IPaymentTokenRegistry.sol";
 
-abstract contract MarketplaceBase is IMarketplaceBase {
+abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     /**
     * @notice maximum duration of an auction
     */
@@ -21,14 +22,40 @@ abstract contract MarketplaceBase is IMarketplaceBase {
     */
     uint256 internal constant MIN_AUCTION_DURATION = 5 minutes;
 
-    IAddressRegistry internal addressRegistry;
+    /**
+    * @notice address registry containing addresses of other contracts
+    */
+    IAddressRegistry internal _addressRegistry;
+
+    constructor(address addressRegistry) {
+        _addressRegistry = IAddressRegistry(addressRegistry);
+    }
 
     /**
-     * @notice Validate payment token
+     * @notice Update address registry address
+     * @param addressRegistry address registry address
+     */
+    function updateAddressRegistryAddress(address addressRegistry) external onlyOwner {
+        _addressRegistry = IAddressRegistry(addressRegistry);
+    }
+
+    /**
+     * @notice get address registry address
+     * @return address
+     */
+    function getAddressRegistryAddress(address addressRegistry) external view returns (address) {
+        return address(_addressRegistry);
+    }
+
+    /**
+     * @notice Validate payment token is enabled
      * @param paymentToken Payment token address
      */
-    function _validatePaymentTokenIsSupported(address paymentToken) internal pure {
-        // TODO: validate pay token via payment token registry
+    function _validatePaymentTokenIsEnabled(address paymentToken) internal {
+        require(
+            _getPaymentTokenRegistry().isEnabled(paymentToken),
+            'MarketplaceBase: payment token is not enabled'
+        );
     }
 
     /**
@@ -53,5 +80,13 @@ abstract contract MarketplaceBase is IMarketplaceBase {
      */
     function _validateAuctionHasNotStarted(Auction memory auction) internal pure {
         require(auction.endTime == 0, 'MarketplaceBase: auction has already started');
+    }
+
+    /**
+     * @notice Get payment token registry contract
+     * @return IPaymentTokenRegistry
+     */
+    function _getPaymentTokenRegistry() internal returns (IPaymentTokenRegistry) {
+        return IPaymentTokenRegistry(_addressRegistry.getPaymentTokenRegistryAddress());
     }
 }

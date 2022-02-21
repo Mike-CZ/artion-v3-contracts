@@ -11,13 +11,17 @@ import "./library/NFTTradable.sol";
 import "./MarketplaceBase.sol";
 import "../interfaces/IERC1155Marketplace.sol";
 
-contract ERC1155Marketplace is Ownable, ERC1155Holder, MarketplaceBase, IERC1155Marketplace {
+contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketplace {
     using NFTTradable for NFTAddress;
 
     /**
     * @notice ERC1155 address => token id => owner => auction
     */
     mapping(address => mapping(uint256 => mapping(address => ERC1155Auction))) private _auctions;
+
+    constructor(address addressRegistry) MarketplaceBase(addressRegistry) {
+
+    }
 
     /**
      * @notice Create new auction
@@ -43,8 +47,8 @@ contract ERC1155Marketplace is Ownable, ERC1155Holder, MarketplaceBase, IERC1155
         // validate given nft and its amount
         _validateNewAuctionNFT(nft, tokenId, amount);
 
-        // validate payment token is supported
-        _validatePaymentTokenIsSupported(paymentToken);
+        // validate payment token is enabled
+        _validatePaymentTokenIsEnabled(paymentToken);
 
         // validate auction time
         _validateNewAuctionTime(startTime, endTime);
@@ -66,7 +70,7 @@ contract ERC1155Marketplace is Ownable, ERC1155Holder, MarketplaceBase, IERC1155
             tokenAmount: amount
         });
 
-        // hold in escrow
+        // transfer token to be held in escrow
         nft.toERC1155().safeTransferFrom(_msgSender(), address(this), tokenId, amount, new bytes(0));
     }
 
