@@ -6,36 +6,56 @@ import "openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin/contracts/utils/introspection/IERC165.sol";
 
+// @notice User defined type to unify ERC721 and ERC1155
 type NFTAddress is address;
 
+/**
+* @title NFT Tradable library
+* @notice Set of functions to work with NFTAddress type.
+*/
 library NFTTradable {
-
-
-    function transfer(NFTAddress nft, address from, address to, uint256 tokenId) internal {
-        transfer(nft, from, to, tokenId, 1);
-    }
-
-    function transfer(NFTAddress nft, address from, address to, uint256 tokenId, uint256 amount) internal {
-        address nftAddress = NFTAddress.unwrap(nft);
-
-        if (isERC721(nft)) {
-            IERC721(nftAddress).safeTransferFrom(from, to, tokenId);
-            return;
-        }
-
-        if (isERC1155(nft)) {
-            IERC1155(nftAddress).safeTransferFrom(from, to, tokenId, amount, bytes(''));
-            return;
-        }
-
-        revert('NFTTradable: invalid nft address');
-    }
-
+    /**
+     * @notice Check NFT address is ERC721
+     * @param nft NFT address
+     * @return bool
+     */
     function isERC721(NFTAddress nft) internal view returns (bool) {
-        return IERC165(NFTAddress.unwrap(nft)).supportsInterface(type(IERC721).interfaceId);
+        return IERC165(toAddress(nft)).supportsInterface(type(IERC721).interfaceId);
     }
 
+    /**
+     * @notice Check NFT address is ERC1155
+     * @param nft NFT address
+     * @return bool
+     */
     function isERC1155(NFTAddress nft) internal view returns (bool) {
-        return IERC165(NFTAddress.unwrap(nft)).supportsInterface(type(IERC1155).interfaceId);
+        return IERC165(toAddress(nft)).supportsInterface(type(IERC1155).interfaceId);
+    }
+
+    /**
+     * @notice Convert NFT address into ERC721 instance
+     * @param nft NFT address
+     * @return IERC721
+     */
+    function toERC721(NFTAddress nft) internal pure returns (IERC721) {
+        return IERC721(toAddress(nft));
+    }
+
+    /**
+     * @notice Convert NFT address into ERC1155 instance
+     * @param nft NFT address
+     * @return IERC1155
+     */
+    function toERC1155(NFTAddress nft) internal pure returns (IERC1155) {
+        return IERC1155(toAddress(nft));
+    }
+
+    /**
+     * @notice Convert NFT address into underlying address
+     * @param nft NFT address
+     * @return address
+     */
+    function toAddress(NFTAddress nft) internal pure returns (address) {
+        return NFTAddress.unwrap(nft);
     }
 }

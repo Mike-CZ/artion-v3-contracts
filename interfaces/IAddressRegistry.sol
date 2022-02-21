@@ -1,7 +1,15 @@
+pragma solidity ^0.8.0;
+
+import "openzeppelin/contracts/interfaces/IERC2981.sol";
+
+/**
+* @title Address registry
+* @dev Contains addresses of other contracts
+*/
 interface IAddressRegistry {
-    function marketplace() external view returns (address);
-
-    function paymentTokenRegistry() external view returns (address);
-
-    function royaltyRegistry() external view returns (address);
+    /**
+    * @notice Get payment token registry address
+    * @return address
+    */
+    function getPaymentTokenRegistryAddress() external view returns (address);
 }
