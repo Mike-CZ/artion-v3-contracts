@@ -15,27 +15,34 @@ contract PaymentTokenRegistry is Ownable {
     /**
     * @notice ERC20 Address -> Bool
     */
-    mapping(address => bool) public enabled;
+    mapping(address => bool) private _enabled;
 
     /**
     * @notice Method for adding payment token
-    * @dev Only admin
-    * @param _token ERC20 token address
+    * @param token ERC20 token address
     */
-    function add(address _token) external onlyOwner {
-        require(! enabled[_token], "PaymentTokenRegistry: payment token already added");
-        enabled[_token] = true;
-        emit PaymentTokenAdded(_token);
+    function add(address token) external onlyOwner {
+        require(! _enabled[token], "PaymentTokenRegistry: payment token already added");
+        _enabled[token] = true;
+        emit PaymentTokenAdded(token);
     }
 
     /**
     * @notice Method for removing payment token
-    * @dev Only admin
-    * @param _token ERC20 token address
+    * @param token ERC20 token address
     */
-    function remove(address _token) external onlyOwner {
-        require(enabled[_token], "PaymentTokenRegistry: payment token does not exist");
-        enabled[_token] = false;
-        emit PaymentTokenRemoved(_token);
+    function remove(address token) external onlyOwner {
+        require(_enabled[token], "PaymentTokenRegistry: payment token does not exist");
+        _enabled[token] = false;
+        emit PaymentTokenRemoved(token);
+    }
+
+    /**
+    * @notice Check token is enabled
+    * @param token ERC20 token address
+    * @return bool
+    */
+    function isEnabled(address token) external view returns (bool) {
+        return _enabled[token];
     }
 }

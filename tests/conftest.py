@@ -1,5 +1,6 @@
 import pytest
-from brownie import PaymentTokenRegistry, ERC721CollectionMock, ERC721CollectionFactory, accounts, ZERO_ADDRESS
+from brownie import PaymentTokenRegistry, ERC721CollectionMock, ERC721CollectionFactory, ERC1155CollectionMock, \
+    ERC1155Marketplace, accounts, ZERO_ADDRESS
 import utils.constants
 
 
@@ -24,6 +25,22 @@ def user_3():
 
 
 @pytest.fixture(scope="module")
+def erc1155_marketplace_mock(owner):
+    return ERC1155Marketplace.deploy({'from': owner})
+
+
+@pytest.fixture(scope="module")
+def erc1155_collection_mock(owner):
+    return ERC1155CollectionMock.deploy({'from': owner})
+
+
+@pytest.fixture(scope="module")
+def erc1155_collection_mint(erc1155_collection_mock):
+    return lambda recipient, amount=1: \
+        erc1155_collection_mock.mintAndGetTokenId(recipient, amount).return_value
+
+
+@pytest.fixture(scope="module")
 def erc721_collection_mock(owner):
     return ERC721CollectionMock.deploy(
         utils.constants.COLLECTION_NAME,
@@ -41,9 +58,13 @@ def erc721_collection_mint(erc721_collection_mock):
         erc721_collection_mock.mintAndGetTokenId(recipient, token_uri, royalty_recipient, royalty_percent).return_value
 
 
-@pytest.fixture(scope="module")
-def payment_token_registry():
-    contract = accounts[0].deploy(PaymentTokenRegistry)
+@pytest.fixture(scope="function")
+def payment_token_registry(owner, request):
+    contract = PaymentTokenRegistry.deploy({'from': owner})
+    if 'no_payment_token_registry_init' not in request.keywords:
+        contract.add(utils.constants.TOMB_TOKEN)
+        contract.add(utils.constants.ZOO_TOKEN)
+        contract.add(utils.constants.WFTM_TOKEN)
     return contract
 
 
@@ -51,15 +72,6 @@ def payment_token_registry():
 def erc721_collection_factory():
     contract = accounts[0].deploy(ERC721CollectionFactory, 5000000000000000000, accounts[0])
     return contract
-
-
-@pytest.fixture(scope="session")
-def payment_token_addresses():
-    return {
-        "TOMB": "0x6c021ae822bea943b2e66552bde1d2696a53fbb7",
-        "ZOO": "0x09e145A1D53c0045F41aEEf25D8ff982ae74dD56",
-        "WFTM": "0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83"
-    }
 
 
 @pytest.fixture(scope="function", autouse=True)

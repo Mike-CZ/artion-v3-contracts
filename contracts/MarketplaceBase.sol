@@ -8,15 +8,20 @@ import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
+import "../interfaces/IMarketplaceBase.sol";
 
-abstract contract MarketplaceBase {
-    IAddressRegistry internal addressRegistry;
-
-    /// @notice maximum duration of an auction
+abstract contract MarketplaceBase is IMarketplaceBase {
+    /**
+    * @notice maximum duration of an auction
+    */
     uint256 internal constant MAX_AUCTION_DURATION = 30 days;
 
-    /// @notice minimum duration of an auction
+    /**
+    * @notice minimum duration of an auction
+    */
     uint256 internal constant MIN_AUCTION_DURATION = 5 minutes;
+
+    IAddressRegistry internal addressRegistry;
 
     /**
      * @notice Validate payment token
@@ -40,5 +45,13 @@ abstract contract MarketplaceBase {
             endTime >= startTime + MIN_AUCTION_DURATION,
             "MarketplaceBase: Auction time does not meet minimum duration"
         );
+    }
+
+    /**
+     * @notice Validate auction has not started
+     * @param auction Auction to validate
+     */
+    function _validateAuctionHasNotStarted(Auction memory auction) internal pure {
+        require(auction.endTime == 0, 'MarketplaceBase: auction has already started');
     }
 }
