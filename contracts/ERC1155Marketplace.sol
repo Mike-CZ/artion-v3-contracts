@@ -6,24 +6,34 @@ import "openzeppelin/contracts/access/Ownable.sol";
 import "openzeppelin/contracts/utils/math/SafeMath.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
+import "openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "./library/NFTTradable.sol";
 import "./MarketplaceBase.sol";
+import "../interfaces/IERC1155Marketplace.sol";
 
-contract ERC1155Marketplace is Ownable, MarketplaceBase {
+contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketplace {
     using NFTTradable for NFTAddress;
 
-    mapping(address => uint256) private _escrow;
+    /**
+    * @notice ERC1155 address => token id => owner => auction
+    */
+    mapping(address => mapping(uint256 => mapping(address => ERC1155Auction))) private _auctions;
 
-    struct Auction {
-        address owner;
-        NFTAddress nft;
-        uint256 minBid;
-        uint256 reservePrice;
-        uint256 startTime;
-        uint256 endTime;
-        bool resulted;
+    constructor(address addressRegistry) MarketplaceBase(addressRegistry) {
+
     }
 
+    /**
+     * @notice Create new auction
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param amount Token amount
+     * @param paymentToken Payment token that will be used for auction
+     * @param reservePrice NFT address
+     * @param startTime NFT address
+     * @param endTime NFT address
+     * @param isMinBidReservePrice NFT address
+     */
     function createAuction(
         NFTAddress nft,
         uint256 tokenId,
@@ -34,12 +44,34 @@ contract ERC1155Marketplace is Ownable, MarketplaceBase {
         uint256 endTime,
         bool isMinBidReservePrice
     ) external {
+        // validate given nft and its amount
         _validateNewAuctionNFT(nft, tokenId, amount);
-        _validatePaymentTokenIsSupported(paymentToken);
+
+        // validate payment token is enabled
+        _validatePaymentTokenIsEnabled(paymentToken);
+
+        // validate auction time
         _validateNewAuctionTime(startTime, endTime);
 
-        nft.toERC1155().safeTransferFrom(_msgSender(), address(this), tokenId, amount, new bytes(0));
+        // validate auction is not already running
+        _validateAuctionHasNotStarted(_auctions[nft.toAddress()][tokenId][_msgSender()].auction);
 
+        // create auction
+        _auctions[nft.toAddress()][tokenId][_msgSender()] = ERC1155Auction({
+            auction: Auction({
+                owner: _msgSender(),
+                paymentToken: paymentToken,
+                isMinBidReservePrice: isMinBidReservePrice,
+                reservePrice: reservePrice,
+                startTime: startTime,
+                endTime: endTime,
+                hasResulted: false
+            }),
+            tokenAmount: amount
+        });
+
+        // transfer token to be held in escrow
+        nft.toERC1155().safeTransferFrom(_msgSender(), address(this), tokenId, amount, new bytes(0));
     }
 
     /**
