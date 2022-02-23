@@ -12,4 +12,10 @@ interface IAddressRegistry {
     * @return address
     */
     function getPaymentTokenRegistryAddress() external view returns (address);
+
+    /**
+    * @notice Update payment token registry address
+    * @param paymentTokenRegistryAddress Payment token registry address
+    */
+    function updatePaymentTokenRegistryAddress(address paymentTokenRegistryAddress) external;
 }

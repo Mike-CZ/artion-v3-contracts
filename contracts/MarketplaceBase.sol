@@ -40,10 +40,10 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice get address registry address
+     * @notice Get address registry address
      * @return address
      */
-    function getAddressRegistryAddress(address addressRegistry) external view returns (address) {
+    function getAddressRegistryAddress() external view returns (address) {
         return address(_addressRegistry);
     }
 
@@ -69,7 +69,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
             'MarketplaceBase: Auction time exceeds maximum duration'
         );
         require(
-            endTime >= startTime + MIN_AUCTION_DURATION,
+            endTime >= (startTime + MIN_AUCTION_DURATION),
             "MarketplaceBase: Auction time does not meet minimum duration"
         );
     }
