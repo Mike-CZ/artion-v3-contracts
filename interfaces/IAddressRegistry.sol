@@ -2,17 +2,13 @@
 
 pragma solidity ^0.8.0;
 
+import "openzeppelin/contracts/interfaces/IERC2981.sol";
+
 /**
 * @title Address registry
 * @dev Contains addresses of other contracts
 */
 interface IAddressRegistry {
-    /**
-    * @notice Get ERC721 marketplace address
-    * @return address
-    */
-    function getERC721MarketplaceAddress() external view returns (address);
-
     /**
     * @notice Get payment token registry address
     * @return address
@@ -20,8 +16,8 @@ interface IAddressRegistry {
     function getPaymentTokenRegistryAddress() external view returns (address);
 
     /**
-    * @notice Get royalty registry address
-    * @return address
+    * @notice Update payment token registry address
+    * @param paymentTokenRegistryAddress Payment token registry address
     */
-    function getRoyaltyRegistryAddress() external view returns (address);
+    function updatePaymentTokenRegistryAddress(address paymentTokenRegistryAddress) external;
 }

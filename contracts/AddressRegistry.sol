@@ -2,60 +2,29 @@
 
 pragma solidity ^0.8.0;
 
-import "openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/IAddressRegistry.sol";
+import "openzeppelin/contracts/access/Ownable.sol";
 
-contract AddressRegistry is IAddressRegistry, Ownable {
-    /// @notice ERC721 marketplace contract
-    address private _ERC721Marketplace;
-
-    /// @notice PaymentTokenRegistry contract
-    address private _paymentTokenRegistry;
-
-    /// @notice RoyaltyRegistry contract
-    address private _royaltyRegistry;
-
-    ////////////////
-    /// Setters ///
-    //////////////
+/**
+ * @dev See {IAddressRegistry}.
+ */
+contract AddressRegistry is Ownable, IAddressRegistry {
+    /**
+     * @notice Payment token registry address
+     */
+    address private _paymentTokenRegistryAddress;
 
     /**
-     @notice Update ERC721 Marketplace contract
-     @dev Only admin
+     * @dev See {IAddressRegistry-getPaymentTokenRegistryAddress}.
      */
-    function updateERC721Marketplace(address newERC721Marketplace) external onlyOwner {
-        _ERC721Marketplace = newERC721Marketplace;
+    function getPaymentTokenRegistryAddress() public view returns (address) {
+        return _paymentTokenRegistryAddress;
     }
 
     /**
-     @notice Update token registry contract
-     @dev Only admin
+     * @dev See {IAddressRegistry-updatePaymentTokenRegistryAddress}.
      */
-    function updatePaymentTokenRegistry(address newPaymentTokenRegistry) external onlyOwner {
-        _paymentTokenRegistry = newPaymentTokenRegistry;
-    }
-
-    /**
-     @notice Update royalty registry contract
-     @dev Only admin
-     */
-    function updateRoyaltyRegistry(address newRoyaltyRegistry) external onlyOwner {
-        _royaltyRegistry = newRoyaltyRegistry;
-    }
-
-    ////////////////
-    /// Getters ///
-    //////////////
-
-    function getERC721MarketplaceAddress() external view returns (address) {
-        return _ERC721Marketplace;
-    }
-
-    function getPaymentTokenRegistryAddress() external view returns (address) {
-        return _paymentTokenRegistry;
-    }
-
-    function getRoyaltyRegistryAddress() external view returns (address) {
-        return _royaltyRegistry;
+    function updatePaymentTokenRegistryAddress(address paymentTokenRegistryAddress) onlyOwner public {
+        _paymentTokenRegistryAddress = paymentTokenRegistryAddress;
     }
 }
