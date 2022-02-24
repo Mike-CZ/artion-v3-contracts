@@ -48,6 +48,22 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Get auction maximum duration
+     * @return int
+     */
+    function getMaximumAuctionDuration() external view returns (uint256) {
+        return MAX_AUCTION_DURATION;
+    }
+
+    /**
+     * @notice Get auction minimum duration
+     * @return int
+     */
+    function getMinimumAuctionDuration() external view returns (uint256) {
+        return MIN_AUCTION_DURATION;
+    }
+
+    /**
      * @notice Validate payment token is enabled
      * @param paymentToken Payment token address
      */
@@ -83,10 +99,34 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Validate auction has not started
+     * @param auction Auction to validate
+     */
+    function _validateAuctionExists(Auction memory auction) internal pure {
+        require(auction.endTime > 0, 'MarketplaceBase: auction does not exist');
+    }
+
+    /**
+     * @notice Validate auction has not started
+     * @param auction Auction to validate
+     */
+    function _validateAuctionExists(Auction memory auction) internal pure {
+        require(auction.endTime > 0, 'MarketplaceBase: auction does not exist');
+    }
+
+    /**
      * @notice Get payment token registry contract
      * @return IPaymentTokenRegistry
      */
     function _getPaymentTokenRegistry() internal returns (IPaymentTokenRegistry) {
         return IPaymentTokenRegistry(_addressRegistry.getPaymentTokenRegistryAddress());
+    }
+
+    /**
+     * @notice Get current timestamp
+     * @return uint256
+     */
+    function _getNow() internal view returns (uint256) {
+        return block.timestamp;
     }
 }

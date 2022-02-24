@@ -17,7 +17,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     /**
     * @notice ERC1155 address => token id => owner => auction
     */
-    mapping(address => mapping(uint256 => mapping(address => ERC1155Auction))) private _auctions;
+    mapping(address => mapping(uint256 => mapping(address => ERC1155Auction))) internal _auctions;
 
     constructor(address addressRegistry) MarketplaceBase(addressRegistry) {
 
@@ -43,23 +43,29 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
         uint256 startTime,
         uint256 endTime,
         bool isMinBidReservePrice
-    ) external {
-        // validate given nft and its amount
+    ) public {
         _validateNewAuctionNFT(nft, tokenId, amount);
 
-        // validate payment token is enabled
         _validatePaymentTokenIsEnabled(paymentToken);
 
-        // validate auction time
         _validateNewAuctionTime(startTime, endTime);
 
-        // validate auction is not already running
-        _validateAuctionHasNotStarted(_auctions[nft.toAddress()][tokenId][_msgSender()].auction);
+        _validateAuctionHasNotStarted(getAuction(nft, tokenId, _msgSender()).auction);
 
-        // create auction
         _createAuctionAndTransferToken(
             nft, tokenId, amount, _msgSender(), paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
         );
+    }
+
+    /**
+     * @notice Place bid
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @param bidAmount Bid amount
+     */
+    function placeBid(NFTAddress nft, uint256 tokenId, address owner, uint256 bidAmount) public {
+
     }
 
     /**
@@ -69,8 +75,8 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      * @param owner Auction owner
      * @return ERC1155Auction
      */
-    function getAuction(address nft, uint256 tokenId, address owner) external view returns (ERC1155Auction memory) {
-        return _auctions[nft][tokenId][owner];
+    function getAuction(NFTAddress nft, uint256 tokenId, address owner) public view returns (ERC1155Auction memory) {
+        return _auctions[nft.toAddress()][tokenId][owner];
     }
 
     /**
@@ -119,15 +125,15 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      * @param tokenId Token identifier
      * @param amount Token amount
      */
-    function _validateNewAuctionNFT(NFTAddress nft, uint256 tokenId, uint256 amount) private {
-        require(nft.isERC1155(), 'ERC1155Marketplace: NFT address is not ERC1155');
+    function _validateNewAuctionNFT(NFTAddress nft, uint256 tokenId, uint256 amount) internal {
+        require(nft.isERC1155(), 'ERC1155Marketplace: NFT not ERC1155');
         require(
             nft.toERC1155().balanceOf(_msgSender(), tokenId) >= amount,
-            'ERC1155Marketplace: does not hold enough tokens'
+            'ERC1155Marketplace: balance too low'
         );
         require(
             nft.toERC1155().isApprovedForAll(_msgSender(), address(this)),
-            'ERC1155Marketplace: not approved for tokens'
+            'ERC1155Marketplace: not approved'
         );
     }
 }
