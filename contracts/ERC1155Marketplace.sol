@@ -19,6 +19,11 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     */
     mapping(address => mapping(uint256 => mapping(address => ERC1155Auction))) internal _auctions;
 
+    /**
+    * @notice ERC1155 address => token id => owner => bid
+    */
+    mapping(address => mapping(uint256 => mapping(address => HighestBid))) internal _highestBids;
+
     constructor(address addressRegistry) MarketplaceBase(addressRegistry) {
 
     }
@@ -50,7 +55,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
 
         _validateNewAuctionTime(startTime, endTime);
 
-        _validateAuctionHasNotStarted(getAuction(nft, tokenId, _msgSender()).auction);
+        _validateAuctionNotExists(getAuction(nft, tokenId, _msgSender()).auction);
 
         _createAuctionAndTransferToken(
             nft, tokenId, amount, _msgSender(), paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
@@ -65,6 +70,38 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      * @param bidAmount Bid amount
      */
     function placeBid(NFTAddress nft, uint256 tokenId, address owner, uint256 bidAmount) public {
+        Auction memory auction = getAuction(nft, tokenId, owner).auction;
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionStarted(auction);
+
+        _validateAuctionNotEnded(auction);
+
+        HighestBid memory highestBid = getHighestBid(nft, tokenId, owner);
+
+        _validateAuctionBidAmount(auction, highestBid, bidAmount);
+
+        _createBidAndTransferFunds(nft, tokenId, owner, _msgSender(), bidAmount);
+
+        if (_highestBidExists(highestBid)) {
+            // TODO: refund
+        }
+    }
+
+    function _createBidAndTransferFunds(
+        NFTAddress nft,
+        uint256 tokenId,
+        address owner,
+        address bidder,
+        uint256 bidAmount
+    ) internal {
+        _highestBids[nft.toAddress()][tokenId][owner] = HighestBid({
+            bidder: bidder,
+            bidAmount: bidAmount,
+            time: _getNow()
+        });
+
 
     }
 
@@ -77,6 +114,17 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      */
     function getAuction(NFTAddress nft, uint256 tokenId, address owner) public view returns (ERC1155Auction memory) {
         return _auctions[nft.toAddress()][tokenId][owner];
+    }
+
+    /**
+     * @notice Get highest bid of an auction
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @return HighestBid
+     */
+    function getHighestBid(NFTAddress nft, uint256 tokenId, address owner) public view returns (HighestBid memory) {
+        return _highestBids[nft.toAddress()][tokenId][owner];
     }
 
     /**

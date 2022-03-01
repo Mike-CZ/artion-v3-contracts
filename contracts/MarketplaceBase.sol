@@ -6,6 +6,7 @@ import "openzeppelin/contracts/access/Ownable.sol";
 import "openzeppelin/contracts/utils/math/SafeMath.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
+import "openzeppelin/contracts/interfaces/IERC20.sol";
 import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IMarketplaceBase.sol";
@@ -64,6 +65,50 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Refund highest bid
+     * @param nft NFT token related to bid
+     * @param auction Auction related to bid
+     * @param highestBid Bid to refund
+     */
+    function _refundHighestBidIfExists(NFTAddress nft, Auction auction, HighestBid highestBid) internal {
+        if (_highestBidExists(highestBid)) {
+            _sendERC20Amount(auction.paymentToken, highestBid.bidder, highestBid.bidAmount);
+            emit BidRefunded(nft.toAddress(), auction.owner, auction);
+        }
+    }
+
+    /**
+     * @notice Receive ERC20 amount
+     * @param payToken Address of ERC20
+     * @param from Sender address
+     * @param amount Amount to transfer
+     */
+    function _receiveERC20Amount(address payToken, address from, uint256 amount) internal {
+        _transferERC20Amount(payToken, from, address(this), amount);
+    }
+
+    /**
+     * @notice Send ERC20 amount
+     * @param payToken Address of ERC20
+     * @param to Receiver address
+     * @param amount Amount to transfer
+     */
+    function _sendERC20Amount(address payToken, address to, uint256 amount) internal {
+        _transferERC20Amount(payToken, address(this), to, amount);
+    }
+
+    /**
+     * @notice Transfer ERC20 amount
+     * @param payToken Address of ERC20
+     * @param from Sender address
+     * @param to Receiver address
+     * @param amount Amount to transfer
+     */
+    function _transferERC20Amount(address payToken, address from, address to, uint256 amount) internal {
+        require(IERC20(payToken).transferFrom(from, to, amount), 'MarketplaceBase: low balance or not approved');
+    }
+
+    /**
      * @notice Validate payment token is enabled
      * @param paymentToken Payment token address
      */
@@ -91,27 +136,102 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate auction has not started
+     * @notice Validate auction exists
      * @param auction Auction to validate
      */
-    function _validateAuctionHasNotStarted(Auction memory auction) internal pure {
-        require(auction.endTime == 0, 'MarketplaceBase: auction has already started');
+    function _validateAuctionExists(Auction memory auction) internal pure {
+        require(_auctionExists(auction), 'MarketplaceBase: auction not exist');
+    }
+
+    /**
+     * @notice Validate auction does not exist
+     * @param auction Auction to validate
+     */
+    function _validateAuctionNotExists(Auction memory auction) internal pure {
+        require(! _auctionExists(auction), 'MarketplaceBase: auction exists');
+    }
+
+    /**
+     * @notice Validate auction has started
+     * @param auction Auction to validate
+     */
+    function _validateAuctionStarted(Auction memory auction) internal pure {
+        require(_auctionStarted(auction), 'MarketplaceBase: auction not started');
     }
 
     /**
      * @notice Validate auction has not started
      * @param auction Auction to validate
      */
-    function _validateAuctionExists(Auction memory auction) internal pure {
-        require(auction.endTime > 0, 'MarketplaceBase: auction does not exist');
+    function _validateAuctionNotStarted(Auction memory auction) internal pure {
+        require(! _auctionStarted(auction), 'MarketplaceBase: auction started');
     }
 
     /**
-     * @notice Validate auction has not started
+     * @notice Validate auction has ended
      * @param auction Auction to validate
      */
-    function _validateAuctionExists(Auction memory auction) internal pure {
-        require(auction.endTime > 0, 'MarketplaceBase: auction does not exist');
+    function _validateAuctionEnded(Auction memory auction) internal pure {
+        require(_auctionEnded(auction), 'MarketplaceBase: auction not ended');
+    }
+
+    /**
+     * @notice Validate auction has not ended
+     * @param auction Auction to validate
+     */
+    function _validateAuctionNotEnded(Auction memory auction) internal pure {
+        require(! _auctionEnded(auction), 'MarketplaceBase: ended');
+    }
+
+    /**
+     * @notice Validate auction bid amount
+     * @param auction Auction to validate
+     * @param auction Highest bid to validate
+     * @param bidAmount Bid amount to validate
+     */
+    function _validateAuctionBidAmount(Auction memory auction, HighestBid highestBid, uint256 bidAmount) internal pure {
+        require(bidAmount > 0, 'MarketplaceBase: low bid amount');
+        // if minimal bid is set to reserve price, bid can not be lower than reserve price
+        if (auction.isMinBidReservePrice) {
+            require(bidAmount >= auction.reservePrice, 'MarketplaceBase: bid lower than reserve price');
+        }
+        require(bidAmount > highestBid.bidAmount, 'MarketplaceBase: bid lower than highest bid');
+    }
+
+     /**
+     * @notice Check auction exists
+     * @param auction Auction to check
+     * @return bool
+     */
+    function _auctionExists(Auction memory auction) internal pure returns (bool) {
+        return auction.startTime > 0;
+    }
+
+    /**
+     * @notice Check highest bid exists
+     * @param highestBid Bid to check
+     * @return bool
+     */
+    function _highestBidExists(HighestBid memory highestBid) internal pure returns (bool) {
+        return highestBid.bidAmount > 0;
+    }
+
+    /**
+     * @notice Check auction has started
+     * @param auction Auction to check
+     * @return bool
+     */
+    function _auctionStarted(Auction memory auction) internal pure returns (bool) {
+        return auction.startTime <= _getNow();
+    }
+
+    /**
+     * @notice Check auction has ended
+     * @param auction Auction to check
+     * @return bool
+     */
+    function _auctionEnded(Auction memory auction) internal pure returns (bool) {
+        return auction.endTime <= _getNow();
     }
 
     /**
