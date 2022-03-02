@@ -13,6 +13,8 @@ import "../interfaces/IMarketplaceBase.sol";
 import "../interfaces/IPaymentTokenRegistry.sol";
 
 abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
+    using SafeMath for uint256;
+
     /**
     * @notice maximum duration of an auction
     */
@@ -24,6 +26,11 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     uint256 internal constant MIN_AUCTION_DURATION = 5 minutes;
 
     /**
+    * @notice amount by which a bid has to increase
+    */
+    uint256 internal _minBidIncrementAmount = 1;
+
+    /**
     * @notice address registry containing addresses of other contracts
     */
     IAddressRegistry internal _addressRegistry;
@@ -33,10 +40,26 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Get minimal increment bid amount
+     * @return uint256
+     */
+    function getMinBidIncrementAmount() public view returns (uint256) {
+        return _minBidIncrementAmount;
+    }
+
+    /**
+     * @notice Update minimal increment bid amount
+     * @param amount New amount
+     */
+    function updateMinBidIncrementAmount(uint256 amount) public onlyOwner {
+        _minBidIncrementAmount = amount;
+    }
+
+    /**
      * @notice Update address registry address
      * @param addressRegistry address registry address
      */
-    function updateAddressRegistryAddress(address addressRegistry) external onlyOwner {
+    function updateAddressRegistryAddress(address addressRegistry) public onlyOwner {
         _addressRegistry = IAddressRegistry(addressRegistry);
     }
 
@@ -44,7 +67,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Get address registry address
      * @return address
      */
-    function getAddressRegistryAddress() external view returns (address) {
+    function getAddressRegistryAddress() public view returns (address) {
         return address(_addressRegistry);
     }
 
@@ -52,7 +75,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Get auction maximum duration
      * @return int
      */
-    function getMaximumAuctionDuration() external view returns (uint256) {
+    function getMaximumAuctionDuration() public pure returns (uint256) {
         return MAX_AUCTION_DURATION;
     }
 
@@ -60,21 +83,17 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Get auction minimum duration
      * @return int
      */
-    function getMinimumAuctionDuration() external view returns (uint256) {
+    function getMinimumAuctionDuration() public pure returns (uint256) {
         return MIN_AUCTION_DURATION;
     }
 
     /**
      * @notice Refund highest bid
-     * @param nft NFT token related to bid
      * @param auction Auction related to bid
      * @param highestBid Bid to refund
      */
-    function _refundHighestBidIfExists(NFTAddress nft, Auction auction, HighestBid highestBid) internal {
-        if (_highestBidExists(highestBid)) {
-            _sendERC20Amount(auction.paymentToken, highestBid.bidder, highestBid.bidAmount);
-            emit BidRefunded(nft.toAddress(), auction.owner, auction);
-        }
+    function _refundHighestBid(Auction memory auction, HighestBid memory highestBid) internal {
+        _sendERC20Amount(auction.paymentToken, highestBid.bidder, highestBid.bidAmount);
     }
 
     /**
@@ -155,7 +174,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has started
      * @param auction Auction to validate
      */
-    function _validateAuctionStarted(Auction memory auction) internal pure {
+    function _validateAuctionStarted(Auction memory auction) internal view {
         require(_auctionStarted(auction), 'MarketplaceBase: auction not started');
     }
 
@@ -163,7 +182,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has not started
      * @param auction Auction to validate
      */
-    function _validateAuctionNotStarted(Auction memory auction) internal pure {
+    function _validateAuctionNotStarted(Auction memory auction) internal view {
         require(! _auctionStarted(auction), 'MarketplaceBase: auction started');
     }
 
@@ -171,7 +190,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has ended
      * @param auction Auction to validate
      */
-    function _validateAuctionEnded(Auction memory auction) internal pure {
+    function _validateAuctionEnded(Auction memory auction) internal view {
         require(_auctionEnded(auction), 'MarketplaceBase: auction not ended');
     }
 
@@ -179,7 +198,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has not ended
      * @param auction Auction to validate
      */
-    function _validateAuctionNotEnded(Auction memory auction) internal pure {
+    function _validateAuctionNotEnded(Auction memory auction) internal view {
         require(! _auctionEnded(auction), 'MarketplaceBase: ended');
     }
 
@@ -189,13 +208,28 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param auction Highest bid to validate
      * @param bidAmount Bid amount to validate
      */
-    function _validateAuctionBidAmount(Auction memory auction, HighestBid highestBid, uint256 bidAmount) internal pure {
-        require(bidAmount > 0, 'MarketplaceBase: low bid amount');
+    function _validateAuctionBidAmount(
+        Auction memory auction,
+        HighestBid memory highestBid,
+        uint256 bidAmount
+    ) internal {
+        // bid amount must be increased at least by minimal bid increment amount
+        uint256 minBidAmount = highestBid.bidAmount.add(_minBidIncrementAmount);
+        require(bidAmount >= minBidAmount, 'MarketplaceBase: low bid amount');
+
         // if minimal bid is set to reserve price, bid can not be lower than reserve price
         if (auction.isMinBidReservePrice) {
             require(bidAmount >= auction.reservePrice, 'MarketplaceBase: bid lower than reserve price');
         }
-        require(bidAmount > highestBid.bidAmount, 'MarketplaceBase: bid lower than highest bid');
+    }
+
+    /**
+     * @notice Validate auction bidder
+     * @param auction Auction to validate
+     * @param bidder Bidder to validate
+     */
+    function _validateAuctionBidder(Auction memory auction, address bidder) internal pure {
+        require(auction.owner != bidder, 'MarketplaceBase: bidder auction owner');
     }
 
      /**
@@ -221,7 +255,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param auction Auction to check
      * @return bool
      */
-    function _auctionStarted(Auction memory auction) internal pure returns (bool) {
+    function _auctionStarted(Auction memory auction) internal view returns (bool) {
         return auction.startTime <= _getNow();
     }
 
@@ -230,7 +264,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param auction Auction to check
      * @return bool
      */
-    function _auctionEnded(Auction memory auction) internal pure returns (bool) {
+    function _auctionEnded(Auction memory auction) internal view returns (bool) {
         return auction.endTime <= _getNow();
     }
 

@@ -29,6 +29,50 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Get auction for given token and owner
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @return ERC1155Auction
+     */
+    function getAuction(NFTAddress nft, uint256 tokenId, address owner) public view returns (ERC1155Auction memory) {
+        return _auctions[nft.toAddress()][tokenId][owner];
+    }
+
+    /**
+     * @notice Check given token and owner have any auction
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @return bool
+     */
+    function hasAuction(NFTAddress nft, uint256 tokenId, address owner) public view returns (bool) {
+        return _auctionExists(getAuction(nft, tokenId, owner).auction);
+    }
+
+    /**
+     * @notice Get highest bid for given token and owner
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @return HighestBid
+     */
+    function getHighestBid(NFTAddress nft, uint256 tokenId, address owner) public view returns (HighestBid memory) {
+        return _highestBids[nft.toAddress()][tokenId][owner];
+    }
+
+    /**
+     * @notice Check given token and owner have any bid
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @return bool
+     */
+    function hasHighestBid(NFTAddress nft, uint256 tokenId, address owner) public view returns (bool) {
+        return _highestBidExists(getHighestBid(nft, tokenId, owner));
+    }
+
+    /**
      * @notice Create new auction
      * @param nft NFT address
      * @param tokenId Token identifier
@@ -78,19 +122,33 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
 
         _validateAuctionNotEnded(auction);
 
+        _validateAuctionBidder(auction, _msgSender());
+
         HighestBid memory highestBid = getHighestBid(nft, tokenId, owner);
 
         _validateAuctionBidAmount(auction, highestBid, bidAmount);
 
-        _createBidAndTransferFunds(nft, tokenId, owner, _msgSender(), bidAmount);
+        _createBidAndTransferFunds(nft, auction.paymentToken, tokenId, owner, _msgSender(), bidAmount);
+
+        emit BidPlaced(nft.toAddress(), auction.owner, tokenId, _msgSender(), bidAmount);
 
         if (_highestBidExists(highestBid)) {
-            // TODO: refund
+            _refundHighestBid(auction, highestBid);
+            emit BidRefunded(nft.toAddress(), auction.owner, tokenId, highestBid.bidder, highestBid.bidAmount);
         }
     }
 
+    /**
+     * @notice Create bid and transfer funds
+     * @param nft NFT address
+     * @param paymentToken Payment token
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @param bidAmount Bid amount
+     */
     function _createBidAndTransferFunds(
         NFTAddress nft,
+        address paymentToken,
         uint256 tokenId,
         address owner,
         address bidder,
@@ -102,29 +160,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
             time: _getNow()
         });
 
-
-    }
-
-    /**
-     * @notice Get auction
-     * @param nft NFT address
-     * @param tokenId Token identifier
-     * @param owner Auction owner
-     * @return ERC1155Auction
-     */
-    function getAuction(NFTAddress nft, uint256 tokenId, address owner) public view returns (ERC1155Auction memory) {
-        return _auctions[nft.toAddress()][tokenId][owner];
-    }
-
-    /**
-     * @notice Get highest bid of an auction
-     * @param nft NFT address
-     * @param tokenId Token identifier
-     * @param owner Auction owner
-     * @return HighestBid
-     */
-    function getHighestBid(NFTAddress nft, uint256 tokenId, address owner) public view returns (HighestBid memory) {
-        return _highestBids[nft.toAddress()][tokenId][owner];
+        _receiveERC20Amount(paymentToken, bidder, bidAmount);
     }
 
     /**

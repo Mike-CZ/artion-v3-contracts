@@ -15,6 +15,11 @@ class AuctionParams:
     pay_token: str = WFTM_TOKEN
 
 
+@dataclass(frozen=True)
+class HighestBidParams:
+    bid_amount: int = Wei('2 ether')
+
+
 @pytest.fixture(scope='module')
 def setup_auction(erc1155_marketplace_mock, erc1155_collection_mock, user):
     def setup_auction_(is_min_bid_reserve_price: bool = False):
@@ -86,7 +91,7 @@ def test_create_action_invalid_token_type(
 ):
     """Test auction creation with invalid token type"""
     token_id = erc721_collection_mint(user)
-    with reverts('ERC1155Marketplace: NFT address is not ERC1155'):
+    with reverts('ERC1155Marketplace: NFT not ERC1155'):
         erc1155_marketplace_mock.createAuction(
             erc721_collection_mock,
             token_id,
@@ -108,7 +113,7 @@ def test_create_action_not_enough_tokens(
 ):
     """Test auction creation without enough tokens"""
     token_id = erc1155_collection_mint(user, 5)
-    with reverts('ERC1155Marketplace: does not hold enough tokens'):
+    with reverts('ERC1155Marketplace: balance too low'):
         erc1155_marketplace_mock.createAuction(
             erc1155_collection_mock,
             token_id,
@@ -130,7 +135,7 @@ def test_create_action_not_approved(
 ):
     """Test auction creation without approval"""
     token_id = erc1155_collection_mint(user, AuctionParams.token_amount)
-    with reverts('ERC1155Marketplace: not approved for tokens'):
+    with reverts('ERC1155Marketplace: not approved'):
         erc1155_marketplace_mock.createAuction(
             erc1155_collection_mock,
             token_id,
@@ -212,7 +217,7 @@ def test_create_action_invalid_time_minimum_duration(
         )
 
 
-def test_create_action_already_started(
+def test_create_action_already_exists(
         erc1155_marketplace_mock,
         erc1155_collection_mock,
         setup_auction,
@@ -220,7 +225,29 @@ def test_create_action_already_started(
 ):
     """Test auction creation when already started"""
     setup_auction()
-    with reverts('MarketplaceBase: auction has already started'):
+    with reverts('MarketplaceBase: auction exists'):
+        erc1155_marketplace_mock.createAuction(
+            erc1155_collection_mock,
+            AuctionParams.token_id,
+            AuctionParams.token_amount,
+            AuctionParams.pay_token,
+            AuctionParams.reserve_price,
+            AuctionParams.start_time,
+            AuctionParams.end_time,
+            False,
+            {'from': user}
+        )
+
+
+def test_place_bid(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction,
+        user
+):
+    """Test auction creation when already started"""
+    setup_auction()
+    with reverts('MarketplaceBase: auction exists'):
         erc1155_marketplace_mock.createAuction(
             erc1155_collection_mock,
             AuctionParams.token_id,
