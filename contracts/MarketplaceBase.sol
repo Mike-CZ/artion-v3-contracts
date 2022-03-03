@@ -7,6 +7,7 @@ import "openzeppelin/contracts/utils/math/SafeMath.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC20.sol";
+import "openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IMarketplaceBase.sol";
@@ -14,6 +15,7 @@ import "../interfaces/IPaymentTokenRegistry.sol";
 
 abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     /**
     * @notice maximum duration of an auction
@@ -103,7 +105,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param amount Amount to transfer
      */
     function _receiveERC20Amount(address payToken, address from, uint256 amount) internal {
-        _transferERC20Amount(payToken, from, address(this), amount);
+        IERC20(payToken).safeTransferFrom(from, address(this), amount);
     }
 
     /**
@@ -113,18 +115,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param amount Amount to transfer
      */
     function _sendERC20Amount(address payToken, address to, uint256 amount) internal {
-        _transferERC20Amount(payToken, address(this), to, amount);
-    }
-
-    /**
-     * @notice Transfer ERC20 amount
-     * @param payToken Address of ERC20
-     * @param from Sender address
-     * @param to Receiver address
-     * @param amount Amount to transfer
-     */
-    function _transferERC20Amount(address payToken, address from, address to, uint256 amount) internal {
-        require(IERC20(payToken).transferFrom(from, to, amount), 'MarketplaceBase: low balance or not approved');
+        IERC20(payToken).safeTransfer(to, amount);
     }
 
     /**
@@ -152,6 +143,43 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
             endTime >= (startTime + MIN_AUCTION_DURATION),
             "MarketplaceBase: Auction time does not meet minimum duration"
         );
+    }
+
+    /**
+     * @notice Validate auction owner
+     * @param auction Auction to validate
+     * @param candidate Auction owner candidate
+     */
+    function _validateAuctionOwner(Auction memory auction, address candidate) internal pure {
+        require(auction.owner == candidate, 'MarketplaceBase: not owner');
+    }
+
+    /**
+     * @notice Validate auction has not resulted
+     * @param auction Auction to validate
+     */
+    function _validateAuctionNotResulted(Auction memory auction) internal pure {
+        require(! _auctionResulted(auction), 'MarketplaceBase: auction resulted');
+    }
+
+    /**
+     * @notice Validate auction highest bid is not above reserve price
+     * @param auction Auction to validate
+     * @param highestBid Highest bid to validate
+     */
+    function _validateAuctionHighestBidNotAboveReservePrice(
+        Auction memory auction,
+        HighestBid memory highestBid
+    ) internal pure {
+        require(auction.reservePrice > highestBid.bidAmount, 'MarketplaceBase: highest bid above reserve price');
+    }
+
+    /**
+     * @notice Validate auction has resulted
+     * @param auction Auction to validate
+     */
+    function _validateAuctionResulted(Auction memory auction) internal pure {
+        require(_auctionResulted(auction), 'MarketplaceBase: auction not resulted');
     }
 
     /**
@@ -199,7 +227,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param auction Auction to validate
      */
     function _validateAuctionNotEnded(Auction memory auction) internal view {
-        require(! _auctionEnded(auction), 'MarketplaceBase: ended');
+        require(! _auctionEnded(auction), 'MarketplaceBase: auction ended');
     }
 
     /**
@@ -266,6 +294,15 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _auctionEnded(Auction memory auction) internal view returns (bool) {
         return auction.endTime <= _getNow();
+    }
+
+    /**
+     * @notice Check auction has resulted
+     * @param auction Auction to check
+     * @return bool
+     */
+    function _auctionResulted(Auction memory auction) internal pure returns (bool) {
+        return auction.hasResulted;
     }
 
     /**

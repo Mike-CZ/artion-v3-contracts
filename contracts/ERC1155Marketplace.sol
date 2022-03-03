@@ -139,6 +139,35 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Cancel auction
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     */
+    function cancelAuction(NFTAddress nft, uint256 tokenId) public {
+        ERC1155Auction memory erc1155Auction = getAuction(nft, tokenId, owner);
+        Auction memory auction = erc1155Auction.auction;
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionOwner(auction, _msgSender());
+
+        _validateAuctionNotResulted(auction);
+
+        HighestBid memory highestBid = getHighestBid(nft, tokenId, owner);
+
+        _validateAuctionHighestBidNotAboveReservePrice(auction, highestBid);
+
+        _deleteAuctionAndTransferToken(nft, erc1155Auction, tokenId);
+
+        if (_highestBidExists(highestBid)) {
+            _refundHighestBid(auction, highestBid);
+            _deleteHighestBid(nft, tokenId, owner);
+            emit BidRefunded(nft.toAddress(), auction.owner, tokenId, highestBid.bidder, highestBid.bidAmount);
+        }
+    }
+
+    /**
      * @notice Create bid and transfer funds
      * @param nft NFT address
      * @param paymentToken Payment token
@@ -201,6 +230,45 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
 
         // transfer token to be held in escrow
         nft.toERC1155().safeTransferFrom(owner, address(this), tokenId, amount, new bytes(0));
+    }
+
+    /**
+     * @notice Delete auction and transfer token
+     * @param nft NFT address
+     * @param erc1155Auction Auction to delete
+     * @param tokenId Token identifier
+     */
+    function _deleteAuctionAndTransferToken(
+        NFTAddress nft,
+        ERC1155Auction memory erc1155Auction,
+        uint256 tokenId
+    ) internal {
+        address owner = erc1155Auction.auction.owner;
+
+        _deleteAuction(nft, tokenId, owner);
+
+        // transfer token back to owner
+        nft.toERC1155().safeTransferFrom(address(this), owner, tokenId, erc1155Auction.tokenAmount, new bytes(0));
+    }
+
+    /**
+     * @notice Delete auction
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     */
+    function _deleteAuction(NFTAddress nft, uint256 tokenId, address owner) internal {
+        delete _auctions[nft.toAddress()][tokenId][owner];
+    }
+
+    /**
+     * @notice Delete highest bid
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     */
+    function _deleteHighestBid(NFTAddress nft, uint256 tokenId, address owner) internal {
+        delete _highestBids[nft.toAddress()][tokenId][owner];
     }
 
     /**
