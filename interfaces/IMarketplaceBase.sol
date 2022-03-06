@@ -22,6 +22,8 @@ interface IMarketplaceBase {
         uint256 time;
     }
 
+    event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
+
     event BidRefunded(
         address indexed nftAddress,
         address nftOwner,
@@ -31,6 +33,14 @@ interface IMarketplaceBase {
     );
 
     event BidPlaced(
+        address indexed nftAddress,
+        address nftOwner,
+        uint256 indexed tokenId,
+        address indexed bidder,
+        uint256 bid
+    );
+
+    event BidWithdrawn(
         address indexed nftAddress,
         address nftOwner,
         uint256 indexed tokenId,

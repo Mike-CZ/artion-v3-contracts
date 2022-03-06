@@ -107,6 +107,77 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Cancel auction
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     */
+    function cancelAuction(NFTAddress nft, uint256 tokenId) public {
+        ERC1155Auction memory erc1155Auction = getAuction(nft, tokenId, _msgSender());
+        Auction memory auction = erc1155Auction.auction;
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionNotResulted(auction);
+
+        HighestBid memory highestBid = getHighestBid(nft, tokenId, _msgSender());
+
+        _validateAuctionHighestBidBelowReservePrice(auction, highestBid);
+
+        _deleteAuctionAndTransferToken(nft, erc1155Auction, tokenId);
+
+        emit AuctionCancelled(nft.toAddress(), _msgSender(), tokenId);
+
+        if (_highestBidExists(highestBid)) {
+            _refundHighestBid(auction, highestBid);
+            _deleteHighestBid(nft, tokenId, _msgSender());
+            emit BidRefunded(nft.toAddress(), auction.owner, tokenId, highestBid.bidder, highestBid.bidAmount);
+        }
+    }
+
+    /**
+     * @notice Finish auction successfully
+     * @dev Successfully finish auction, to unsuccessfully finish auction call `cancelAuction`
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @param acceptBidBelowReservePrice Accept bid when below reserve price flag
+     */
+    function finishAuction(NFTAddress nft, uint256 tokenId, address owner, bool acceptBidBelowReservePrice) public {
+        ERC1155Auction memory erc1155Auction = getAuction(nft, tokenId, owner);
+        Auction memory auction = erc1155Auction.auction;
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionEnded(auction);
+
+        HighestBid memory highestBid = getHighestBid(nft, tokenId, owner);
+
+        _validateHighestBidExists(highestBid);
+
+        if (acceptBidBelowReservePrice) {
+            _validateAuctionOwner(auction, _msgSender());
+        } else {
+            _validateAuctionOrHighestBidOwner(auction, highestBid, _msgSender());
+            _validateAuctionHighestBidAboveOrEqualReservePrice(auction, highestBid);
+        }
+
+        _deleteAuction(nft, tokenId, owner);
+        _deleteHighestBid(nft, tokenId, _msgSender());
+
+        uint256 fee = _calculateAndTakeAuctionFee(auction, highestBid);
+        uint256 finalAmount = highestBid.bidAmount - fee;
+
+        // TODO: Royalty
+
+        if (finalAmount > 0) {
+            _sendPayTokenAmount(auction.paymentToken, auction.owner, finalAmount);
+        }
+
+        nft.toERC1155().safeTransferFrom(
+            address(this), highestBid.bidder, tokenId, erc1155Auction.tokenAmount, new bytes(0)
+        );
+    }
+    /**
      * @notice Place bid
      * @param nft NFT address
      * @param tokenId Token identifier
@@ -122,13 +193,13 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
 
         _validateAuctionNotEnded(auction);
 
-        _validateAuctionBidder(auction, _msgSender());
+        _validateAuctionBidderNotOwner(auction, _msgSender());
 
         HighestBid memory highestBid = getHighestBid(nft, tokenId, owner);
 
         _validateAuctionBidAmount(auction, highestBid, bidAmount);
 
-        _createBidAndTransferFunds(nft, auction.paymentToken, tokenId, owner, _msgSender(), bidAmount);
+        _createBidAndTransferPayTokenAmount(nft, auction.paymentToken, tokenId, owner, _msgSender(), bidAmount);
 
         emit BidPlaced(nft.toAddress(), auction.owner, tokenId, _msgSender(), bidAmount);
 
@@ -139,43 +210,38 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
-     * @notice Cancel auction
+     * @notice Withdraw bid
      * @param nft NFT address
      * @param tokenId Token identifier
      * @param owner Auction owner
      */
-    function cancelAuction(NFTAddress nft, uint256 tokenId) public {
-        ERC1155Auction memory erc1155Auction = getAuction(nft, tokenId, owner);
-        Auction memory auction = erc1155Auction.auction;
-
-        _validateAuctionExists(auction);
-
-        _validateAuctionOwner(auction, _msgSender());
-
-        _validateAuctionNotResulted(auction);
-
+    function withdrawBid(NFTAddress nft, uint256 tokenId, address owner) public {
         HighestBid memory highestBid = getHighestBid(nft, tokenId, owner);
 
-        _validateAuctionHighestBidNotAboveReservePrice(auction, highestBid);
+        _validateAuctionHighestBidOwner(highestBid, _msgSender());
 
-        _deleteAuctionAndTransferToken(nft, erc1155Auction, tokenId);
+        Auction memory auction = getAuction(nft, tokenId, owner).auction;
 
-        if (_highestBidExists(highestBid)) {
-            _refundHighestBid(auction, highestBid);
-            _deleteHighestBid(nft, tokenId, owner);
-            emit BidRefunded(nft.toAddress(), auction.owner, tokenId, highestBid.bidder, highestBid.bidAmount);
-        }
+        _validateAuctionEnded(auction);
+
+        _validateAuctionHighestBidIsWithdrawable(auction, highestBid);
+
+        _deleteHighestBid(nft, tokenId, owner);
+
+        _refundHighestBid(auction, highestBid);
+
+        emit BidWithdrawn(nft.toAddress(), auction.owner, tokenId, _msgSender(), highestBid.bidAmount);
     }
 
     /**
-     * @notice Create bid and transfer funds
+     * @notice Create bid and transfer pay token amount
      * @param nft NFT address
      * @param paymentToken Payment token
      * @param tokenId Token identifier
      * @param owner Auction owner
      * @param bidAmount Bid amount
      */
-    function _createBidAndTransferFunds(
+    function _createBidAndTransferPayTokenAmount(
         NFTAddress nft,
         address paymentToken,
         uint256 tokenId,
@@ -189,7 +255,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
             time: _getNow()
         });
 
-        _receiveERC20Amount(paymentToken, bidder, bidAmount);
+        _receivePayTokenAmount(paymentToken, bidder, bidAmount);
     }
 
     /**
