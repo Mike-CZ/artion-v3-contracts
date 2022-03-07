@@ -58,7 +58,7 @@ def address_registry(payment_token_registry, owner):
 
 @pytest.fixture(scope="module")
 def erc1155_marketplace_mock(address_registry, owner):
-    return ERC1155MarketplaceMock.deploy(address_registry, {'from': owner})
+    return ERC1155MarketplaceMock.deploy(address_registry, owner, {'from': owner})
 
 
 @pytest.fixture(scope="module")
