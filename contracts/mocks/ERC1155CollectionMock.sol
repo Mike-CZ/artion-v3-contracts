@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-
 import "openzeppelin/contracts/mocks/ERC1155Mock.sol";
 
 contract ERC1155CollectionMock is ERC1155Mock('some-uri/{id}') {
