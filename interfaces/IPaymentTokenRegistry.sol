@@ -26,5 +26,5 @@ interface IPaymentTokenRegistry {
     * @param token ERC20 token address
     * @return bool
     */
-    function enabled(address token) external view returns (bool);
+    function isEnabled(address token) external view returns (bool);
 }

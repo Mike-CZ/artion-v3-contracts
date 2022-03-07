@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+
 pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
@@ -15,5 +17,13 @@ interface IMarketplaceBase {
         uint256 startTime;
         uint256 endTime;
         bool hasResulted;
+    }
+
+    /// @notice Structure for listed items
+    struct Listing {
+        address owner;
+        address paymentToken;
+        uint256 price;
+        uint256 startingTime;
     }
 }
