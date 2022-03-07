@@ -24,9 +24,8 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     */
     mapping(address => mapping(uint256 => mapping(address => HighestBid))) internal _highestBids;
 
-    constructor(address addressRegistry) MarketplaceBase(addressRegistry) {
+    constructor(address addressRegistry, address feeRecipient) MarketplaceBase(addressRegistry, feeRecipient) {}
 
-    }
 
     /**
      * @notice Get auction for given token and owner

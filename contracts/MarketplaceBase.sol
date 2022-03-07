@@ -92,7 +92,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     * @return address
     */
     function getFeeRecipient() public view returns (address) {
-        return _auctionFee;
+        return _feeRecipient;
     }
 
     /**
@@ -161,10 +161,10 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     function _calculateAndTakeAuctionFee(
         Auction memory auction,
         HighestBid memory highestBid
-    ) internal pure returns (uint256) {
+    ) internal returns (uint256) {
         uint256 feeBase = highestBid.bidAmount - auction.reservePrice;
         if (feeBase > 0) {
-            uint256 fee = feeBase * _auctionFee / 1000;
+            uint256 fee = feeBase * _auctionFee / 1_000;
             _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
             return fee;
         }
@@ -190,8 +190,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     function _sendPayTokenAmount(address payToken, address to, uint256 amount) internal {
         IERC20(payToken).safeTransfer(to, amount);
     }
-
-    function _validatePayTokenAmount(address payToken, address )
 
     /**
      * @notice Validate payment token is enabled
@@ -282,7 +280,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
 
     /**
      * @notice Validate highest bid exists
-     * @param auction Highest bid to validate
+     * @param highestBid Highest bid to validate
      */
     function _validateHighestBidExists(HighestBid memory highestBid) internal pure {
         require(_highestBidExists(highestBid), 'MarketplaceBase: highest bid not exist');
