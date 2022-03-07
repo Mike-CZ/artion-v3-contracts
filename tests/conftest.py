@@ -1,6 +1,7 @@
 import pytest
 from brownie import PaymentTokenRegistry, ERC721CollectionMock, ERC721CollectionFactory, ERC1155CollectionMock, \
-    ERC1155Marketplace, ERC721Marketplace, MarketplaceBaseMock, AddressRegistry, accounts, ZERO_ADDRESS
+    ERC1155MarketplaceMock, ERC721Marketplace, ERC20TokenMock, MarketplaceBaseMock, AddressRegistry, accounts, \
+    ZERO_ADDRESS
 import utils.constants
 
 
@@ -25,11 +26,27 @@ def user_3():
 
 
 @pytest.fixture(scope="module")
-def payment_token_registry(owner):
+def erc20_mock(owner, user, user_2, user_3):
+    contract = ERC20TokenMock.deploy(
+        utils.constants.TEST_TOKEN_NAME,
+        utils.constants.TEST_TOKEN_SYMBOL,
+        owner,
+        utils.constants.TEST_TOKEN_OWNER_AMOUNT,
+        {'from': owner}
+    )
+    contract.mint(user, utils.constants.TEST_TOKEN_USER_AMOUNT)
+    contract.mint(user_2, utils.constants.TEST_TOKEN_USER_2_AMOUNT)
+    contract.mint(user_3, utils.constants.TEST_TOKEN_USER_3_AMOUNT)
+    return contract
+
+
+@pytest.fixture(scope="module")
+def payment_token_registry(owner, erc20_mock):
     contract = PaymentTokenRegistry.deploy({'from': owner})
     contract.add(utils.constants.TOMB_TOKEN)
     contract.add(utils.constants.ZOO_TOKEN)
     contract.add(utils.constants.WFTM_TOKEN)
+    contract.add(erc20_mock)
     return contract
 
 
@@ -42,7 +59,7 @@ def address_registry(payment_token_registry, owner):
 
 @pytest.fixture(scope="module")
 def erc1155_marketplace_mock(address_registry, owner):
-    return ERC1155Marketplace.deploy(address_registry, {'from': owner})
+    return ERC1155MarketplaceMock.deploy(address_registry, {'from': owner})
 
 
 @pytest.fixture(scope="module")
