@@ -176,6 +176,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
             address(this), highestBid.bidder, tokenId, erc1155Auction.tokenAmount, new bytes(0)
         );
     }
+
     /**
      * @notice Place bid
      * @param nft NFT address

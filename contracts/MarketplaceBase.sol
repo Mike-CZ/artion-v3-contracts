@@ -11,6 +11,7 @@ import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IMarketplaceBase.sol";
 import "../interfaces/IPaymentTokenRegistry.sol";
+import "../interfaces/IRoyaltyRegistry.sol";
 
 abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     using SafeERC20 for IERC20;
@@ -465,6 +466,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _getPaymentTokenRegistry() internal returns (IPaymentTokenRegistry) {
         return IPaymentTokenRegistry(_addressRegistry.getPaymentTokenRegistryAddress());
+    }
+
+    /**
+     * @notice Get royalty registry contract
+     * @return IRoyaltyRegistry
+     */
+    function _getRoyaltyRegistry() internal returns (IRoyaltyRegistry) {
+        return IRoyaltyRegistry(_addressRegistry.getRoyaltyRegistryAddress());
     }
 
     /**

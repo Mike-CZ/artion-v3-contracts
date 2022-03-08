@@ -1,5 +1,6 @@
 from brownie import accounts, reverts, ERC721Collection
 
+
 class TestCreateERC721Collection:
     create_collection_fee = 5000000000000000000  # fee recipient is accounts[0]
 

@@ -18,4 +18,16 @@ interface IAddressRegistry {
     * @param paymentTokenRegistryAddress Payment token registry address
     */
     function updatePaymentTokenRegistryAddress(address paymentTokenRegistryAddress) external;
+
+    /**
+    * @notice Get royalty registry address
+    * @return address
+    */
+    function getRoyaltyRegistryAddress() external view returns (address);
+
+    /**
+    * @notice Update royalty registry address
+    * @param royaltyRegistryAddress Royalty registry address
+    */
+    function updateRoyaltyRegistryAddress(address royaltyRegistryAddress) external;
 }
