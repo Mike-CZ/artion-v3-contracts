@@ -29,12 +29,7 @@ contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
     uint256 internal constant ROYALTY_PERCENT_DENOMINATOR = 10_000;
 
     /**
-     * @notice Returns how much royalty is owed and to whom, based on a sale price that may be denominated in any unit
-     * of exchange. The royalty amount is denominated and should be payed in that same unit of exchange.
-     * @param nft NFT collection
-     * @param tokenId Token identifier
-     * @param salePrice Sale price
-     * @return address, uint256
+     * @dev see {IRoyaltyRegistry-royaltyInfo}
      */
     function royaltyInfo(NFTAddress nft, uint256 tokenId, uint256 salePrice) public view returns (address, uint256) {
         if (nft.isERC2981()) {
@@ -46,11 +41,85 @@ contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
             royalty = _getDefaultRoyaltyInfo(nft);
         }
 
-        return (royalty.receiver, _calculateRoyalty(salePrice, royalty.royaltyFraction));
+        return (royalty.receiver, (salePrice * royalty.royaltyFraction) / ROYALTY_PERCENT_DENOMINATOR);
+    }
+
+    /**
+     * @dev see {IRoyaltyRegistry-setDefaultRoyalty}
+     */
+    function setDefaultRoyalty(NFTAddress nft, address recipient, uint96 royaltyFraction) onlyOwner public {
+        require(! nft.isERC2981Settable(), 'RoyaltyRegistry: supports royalty setter');
+        // TODO: legacy collection
+
+        require(! _royaltyInfoExists(_getDefaultRoyaltyInfo(nft)), 'RoyaltyRegistry: royalty set');
+        require(royaltyFraction <= ROYALTY_PERCENT_DENOMINATOR, 'RoyaltyRegistry: royalty too high');
+
+        _defaultRoyaltyInfo[nft.toAddress()] = RoyaltyInfo(recipient, royaltyFraction);
+    }
+
+    /**
+     * @dev see {IRoyaltyRegistry-setTokenRoyalty}
+     */
+    function setTokenRoyalty(NFTAddress nft, uint256 tokenId, address recipient, uint96 royaltyFraction) public {
+        require(! nft.isERC2981Settable(), 'RoyaltyRegistry: supports royalty setter');
+        // TODO: legacy collection
+
+        _validateTokenOwner(nft, tokenId);
+
+        require(! _royaltyInfoExists(_getTokenRoyaltyInfo(nft, tokenId)), 'RoyaltyRegistry: royalty set');
+        require(royaltyFraction <= ROYALTY_PERCENT_DENOMINATOR, 'RoyaltyRegistry: royalty too high');
+
+        _tokenRoyaltyInfo[nft.toAddress()][tokenId] = RoyaltyInfo(recipient, royaltyFraction);
+    }
+
+    /**
+     * @dev see {IRoyaltyRegistry-updateDefaultRoyaltyRecipient}
+     */
+    function updateDefaultRoyaltyRecipient(NFTAddress nft, address recipient) public {
+        _validateCurrentRoyaltyRecipient(_getDefaultRoyaltyInfo(nft), _msgSender());
+        _defaultRoyaltyInfo[nft.toAddress()].receiver = recipient;
+    }
+
+    /**
+     * @dev see {IRoyaltyRegistry-updateTokenRoyaltyRecipient}
+     */
+    function updateTokenRoyaltyRecipient(NFTAddress nft, uint256 tokenId, address recipient) public {
+        _validateCurrentRoyaltyRecipient(_getTokenRoyaltyInfo(nft, tokenId), _msgSender());
+        _tokenRoyaltyInfo[nft.toAddress()][tokenId].receiver = recipient;
+    }
+
+    /**
+    * @notice Validate token owner
+    * @param nft NFT address to validate
+    * @param tokenId Token identifier to validate
+    */
+    function _validateTokenOwner(NFTAddress nft, uint256 tokenId) internal {
+        if (nft.isERC721()) {
+            require(nft.toERC721().ownerOf(tokenId) == _msgSender(), 'RoyaltyRegistry: not owner');
+            return;
+        }
+
+        if (nft.isERC1155()) {
+            require(nft.toERC1155().balanceOf(_msgSender(), tokenId) > 0, 'RoyaltyRegistry: not owner');
+            return;
+        }
+
+        revert('RoyaltyRegistry: invalid nft');
+    }
+
+    /**
+    * @notice Validate current royalty recipient
+    * @param royalty Royalty info to validate
+    * @param recipient Royalty recipient to validate
+    */
+    function _validateCurrentRoyaltyRecipient(RoyaltyInfo memory royalty, address recipient) internal pure {
+        require(royalty.receiver == recipient, 'RoyaltyRegistry: not current recipient');
     }
 
     /**
     * @notice Get token royalty info
+    * @param nft NFT address
+    * @param tokenId Token identifier
     * @return RoyaltyInfo
     */
     function _getTokenRoyaltyInfo(NFTAddress nft, uint256 tokenId) internal view returns (RoyaltyInfo memory) {
@@ -58,7 +127,8 @@ contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
     }
 
     /**
-    * @notice Get royalty info
+    * @notice Get default royalty info
+    * @param nft NFT address
     * @return RoyaltyInfo
     */
     function _getDefaultRoyaltyInfo(NFTAddress nft) internal view returns (RoyaltyInfo memory) {
@@ -66,21 +136,11 @@ contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
     }
 
     /**
-    * @notice Get royalty info
+    * @notice Check royalty info exists
     * @param royalty Royalty info
     * @return bool
     */
     function _royaltyInfoExists(RoyaltyInfo memory royalty) internal pure returns (bool) {
         return royalty.receiver != address(0);
-    }
-
-    /**
-    * @notice Calculate royalty
-    * @param salePrice Sale price
-    * @param royaltyFraction Royalty fraction
-    * @return uint256
-    */
-    function _calculateRoyalty(uint256 salePrice, uint96 royaltyFraction) internal pure returns (uint256) {
-        return (salePrice * royaltyFraction) / ROYALTY_PERCENT_DENOMINATOR;
     }
 }
