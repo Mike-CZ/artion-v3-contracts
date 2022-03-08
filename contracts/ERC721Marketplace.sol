@@ -8,7 +8,6 @@ import "openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "openzeppelin/contracts/access/Ownable.sol";
 import "openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IPaymentTokenRegistry.sol";
 import "./library/NFTTradable.sol";
@@ -16,48 +15,9 @@ import "./MarketplaceBase.sol";
 
 contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, MarketplaceBase {
     using NFTTradable for NFTAddress;
-    using SafeMath for uint256;
-
-    /// @notice Events for the contract
-    event ItemListingCreated(
-        address indexed owner,
-        address indexed nft,
-        uint256 tokenId,
-        address paymentToken,
-        uint256 price,
-        uint256 startingTime
-    );
-
-    event ItemListingUpdated(
-        address indexed owner,
-        address indexed nft,
-        uint256 tokenId,
-        address newPaymentToken,
-        uint256 newPrice
-    );
-
-    event ItemListingCanceled(
-        address indexed owner,
-        address indexed nft,
-        uint256 tokenId
-    );
-
-    event ListedItemSold(
-        address indexed seller,
-        address indexed buyer,
-        address indexed nft,
-        uint256 tokenId,
-        address paymentToken
-    );
 
     /// @notice NftAddress -> Token ID -> Listed item
     mapping(address => mapping(uint256 => Listing)) private _listings;
-
-    /// @notice Platform fee
-    uint256 private _platformFee;
-
-    /// @notice Platform fee recipient
-    address payable private _platformFeeRecipient;
 
     modifier isListed(address nftAddress, uint256 tokenId) {
         Listing memory listing = _listings[nftAddress][tokenId];
@@ -71,9 +31,7 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
         _;
     }
 
-    constructor(address addressRegistry) MarketplaceBase(addressRegistry) {
-
-    }
+    constructor(address addressRegistry, address payable feeRecipient) MarketplaceBase(addressRegistry, feeRecipient) {}
 
     /// @notice Method for listing an NFT
     /// @param nftAddress Address of NFT contract
@@ -85,11 +43,12 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
     function createListing(
         NFTAddress nftAddress,
         uint256 tokenId,
-        address owner,
+        address payable owner,
         address paymentToken,
         uint256 price,
         uint256 startingTime
     ) external isNotListed(nftAddress.toAddress(), tokenId) {
+        _validateNewListingTime(startingTime);
         _validatePaymentTokenIsEnabled(paymentToken);
         _validateOwnershipAndApproval(nftAddress, tokenId, owner);
 
@@ -103,7 +62,7 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
             startingTime
         );
 
-        emit ItemListingCreated(
+        emit ListingCreated(
             _msgSender(),
             nftAddress.toAddress(),
             tokenId,
@@ -127,12 +86,12 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
         _validatePaymentTokenIsEnabled(paymentToken);
 
         Listing storage listedItem = _listings[nftAddress.toAddress()][tokenId];
-        _validateOwnership(nftAddress, tokenId, listedItem.owner);
+        _validateOwnership(nftAddress, listedItem.owner);
 
         listedItem.paymentToken = paymentToken;
         listedItem.price = newPrice;
 
-        emit ItemListingUpdated(
+        emit ListingUpdated(
             _msgSender(),
             nftAddress.toAddress(),
             tokenId,
@@ -149,23 +108,21 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
         uint256 tokenId
     ) external nonReentrant isListed(nftAddress.toAddress(), tokenId) {
         address listingOwner = _listings[nftAddress.toAddress()][tokenId].owner;
-        _validateOwnership(nftAddress, tokenId, listingOwner);
+        _validateOwnership(nftAddress, listingOwner);
 
         delete (_listings[nftAddress.toAddress()][tokenId]);
-        emit ItemListingCanceled(_msgSender(), nftAddress.toAddress(), tokenId);
+        emit ListingCanceled(_msgSender(), nftAddress.toAddress(), tokenId);
     }
 
     /// @notice Method for buying listed NFT
     /// @param nftAddress NFT contract address
     /// @param tokenId TokenId
+    /// @param paymentToken Payment token
     function buyListedItem(NFTAddress nftAddress, uint256 tokenId, address paymentToken)
         external
         nonReentrant
         isListed(nftAddress.toAddress(), tokenId)
     {
-        address listingOwner = _listings[nftAddress.toAddress()][tokenId].owner;
-        _validateOwnership(nftAddress, tokenId, listingOwner);
-
         require(
             _listings[nftAddress.toAddress()][tokenId].paymentToken == paymentToken,
             "ERC721Marketplace: invalid payment token"
@@ -175,24 +132,12 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
             "ERC721Marketplace: listing has not started yet"
         );
 
-        _buyListedItem(nftAddress, tokenId, paymentToken);
+        _buyListedItem(nftAddress, tokenId);
     }
 
     ////////////////////////////
     /// Setters and Getters ///
     ///////////////////////////
-
-    function setPlatformFee(uint256 platformFee) external onlyOwner {
-        _platformFee = platformFee;
-    }
-
-    function setPlatformFeeRecipient(address payable platformFeeRecipient) external onlyOwner {
-        _platformFeeRecipient = platformFeeRecipient;
-    }
-
-    function updateAddressRegistry(address addressRegistry) external onlyOwner {
-        _addressRegistry = IAddressRegistry(addressRegistry);
-    }
 
     /**
      * @notice Get listing
@@ -208,7 +153,7 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
     /// Internal and Private ///
     ////////////////////////////
 
-    function _validateOwnershipAndApproval(NFTAddress nftAddress, uint256 tokenId, address owner) internal {
+    function _validateOwnershipAndApproval(NFTAddress nftAddress, uint256 tokenId, address owner) internal view {
         require(nftAddress.isERC721(), 'ERC721Marketplace: NFT is not ERC721');
 
         require(
@@ -222,44 +167,37 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
         );
     }
 
-    function _validateOwnership(NFTAddress nftAddress, uint256 tokenId, address owner) internal {
+    function _validateOwnership(NFTAddress nftAddress, address owner) internal view {
         require(nftAddress.isERC721(), 'ERC721Marketplace: NFT is not ERC721');
         require(owner == _msgSender(), "ERC721Marketplace: does not own the token");
     }
 
-    function _buyListedItem(NFTAddress nftAddress, uint256 tokenId, address paymentToken) private {
-        address owner = nftAddress.toERC721().ownerOf(tokenId);
+    function _buyListedItem(NFTAddress nftAddress, uint256 tokenId) private {
         Listing memory listedItem = _listings[nftAddress.toAddress()][tokenId];
+        address payable owner = listedItem.owner;
+        address paymentToken = listedItem.paymentToken;
         uint256 price = listedItem.price;
-        uint256 feeAmount = price.mul(_platformFee).div(1e3);
 
-        // Transfer platform fee from buyer to platform
-        IERC20(paymentToken).transferFrom(
-            _msgSender(),
-            _platformFeeRecipient,
-            feeAmount
-        );
+        // Calculate and transfer platform fee from buyer to platform
+        uint256 feeAmount = _calculateAndTakeListingFee(listedItem);
 
         // TODO: Royalty
 
         // Transfer payment tokens from buyer to owner of NFT
-        IERC20(paymentToken).transferFrom(
-            _msgSender(),
-            owner,
-            price.sub(feeAmount)
-        );
+        _transferPayTokenAmount(paymentToken, _msgSender(), owner, price - feeAmount);
 
         // Transfer NFT to buyer
-        IERC721(nftAddress.toAddress()).safeTransferFrom(owner, _msgSender(), tokenId);
+        IERC721(nftAddress.toAddress()).safeTransferFrom(address(this), _msgSender(), tokenId);
 
         emit ListedItemSold(
             owner,
             _msgSender(),
             nftAddress.toAddress(),
             tokenId,
+            price,
             paymentToken
         );
-        
+
         delete (_listings[nftAddress.toAddress()][tokenId]);
     }
 }
