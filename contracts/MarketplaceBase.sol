@@ -323,6 +323,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
 
     /**
      * @notice Validate highest bid exists
+     * @param highestBid Highest bid to validate
      */
     function _validateHighestBidExists(HighestBid memory highestBid) internal pure {
         require(_highestBidExists(highestBid), 'MarketplaceBase: highest bid not exist');

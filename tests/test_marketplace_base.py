@@ -5,7 +5,7 @@ from brownie.test import given, strategy
 
 @pytest.fixture(scope="module")
 def marketplace_base_mock(address_registry, owner):
-    return MarketplaceBaseMock.deploy(address_registry, {'from': owner})
+    return MarketplaceBaseMock.deploy(address_registry, owner, {'from': owner})
 
 
 @given(address=strategy('address'))
