@@ -24,8 +24,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     */
     mapping(address => mapping(uint256 => mapping(address => HighestBid))) internal _highestBids;
 
-    constructor(address addressRegistry, address feeRecipient) MarketplaceBase(addressRegistry, feeRecipient) {}
-
+    constructor(address addressRegistry, address payable feeRecipient) MarketplaceBase(addressRegistry, feeRecipient) {}
 
     /**
      * @notice Get auction for given token and owner
@@ -169,7 +168,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
         // TODO: Royalty
 
         if (finalAmount > 0) {
-            _sendPayTokenAmount(auction.paymentToken, auction.owner, finalAmount);
+            _sendPayTokenAmount(auction.paymentToken, payable(auction.owner), finalAmount);
         }
 
         nft.toERC1155().safeTransferFrom(
@@ -343,7 +342,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      * @param tokenId Token identifier
      * @param amount Token amount
      */
-    function _validateNewAuctionNFT(NFTAddress nft, uint256 tokenId, uint256 amount) internal {
+    function _validateNewAuctionNFT(NFTAddress nft, uint256 tokenId, uint256 amount) internal view {
         require(nft.isERC1155(), 'ERC1155Marketplace: NFT not ERC1155');
         require(
             nft.toERC1155().balanceOf(_msgSender(), tokenId) >= amount,

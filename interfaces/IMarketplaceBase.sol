@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
@@ -16,10 +18,19 @@ interface IMarketplaceBase {
         uint256 endTime;
         bool hasResulted;
     }
+
     struct HighestBid {
         address bidder;
         uint256 bidAmount;
         uint256 time;
+    }
+
+    /// @notice Structure for listed items
+    struct Listing {
+        address payable owner;
+        address paymentToken;
+        uint256 price;
+        uint256 startingTime;
     }
 
     event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
@@ -46,5 +57,38 @@ interface IMarketplaceBase {
         uint256 indexed tokenId,
         address indexed bidder,
         uint256 bid
+    );
+
+    // @notice Events for listing
+    event ListingCreated(
+        address indexed owner,
+        address indexed nft,
+        uint256 indexed tokenId,
+        address paymentToken,
+        uint256 price,
+        uint256 startingTime
+    );
+
+    event ListingUpdated(
+        address indexed owner,
+        address indexed nft,
+        uint256 indexed tokenId,
+        address newPaymentToken,
+        uint256 newPrice
+    );
+
+    event ListingCanceled(
+        address indexed owner,
+        address indexed nft,
+        uint256 indexed tokenId
+    );
+
+    event ListedItemSold(
+        address indexed seller,
+        address indexed buyer,
+        address indexed nft,
+        uint256 tokenId,
+        uint256 price,
+        address paymentToken
     );
 }

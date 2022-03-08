@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
@@ -24,5 +26,5 @@ interface IPaymentTokenRegistry {
     * @param token ERC20 token address
     * @return bool
     */
-    function isEnabled(address token) external returns (bool);
+    function isEnabled(address token) external view returns (bool);
 }

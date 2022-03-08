@@ -41,6 +41,11 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     */
     uint256 internal _auctionFee = 25;
 
+    /*
+    * @notice listing fee, assumed to be 1 decimal place i.e. 25 = 2,5%
+    */
+    uint256 internal _listingFee = 25;
+
     /**
     * @notice recipient of fees
     */
@@ -86,6 +91,22 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function updateAuctionFee(uint256 auctionFee) public onlyOwner {
         _auctionFee = auctionFee;
+    }
+
+    /**
+    * @notice Get listing fee
+    * @return uint256
+    */
+    function getListingFee() public view returns (uint256) {
+        return _listingFee;
+    }
+
+    /**
+     * @notice Update listing fee
+     * @param listingFee Fee amount - assumed to be 1 decimal place i.e. 25 = 2,5%
+     */
+    function updateListingFee(uint256 listingFee) public onlyOwner {
+        _listingFee = listingFee;
     }
 
     /**
@@ -150,7 +171,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param highestBid Bid to refund
      */
     function _refundHighestBid(Auction memory auction, HighestBid memory highestBid) internal {
-        _sendPayTokenAmount(auction.paymentToken, highestBid.bidder, highestBid.bidAmount);
+        _sendPayTokenAmount(auction.paymentToken, payable(highestBid.bidder), highestBid.bidAmount);
     }
 
     /**
@@ -165,11 +186,22 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     ) internal returns (uint256) {
         uint256 feeBase = highestBid.bidAmount - auction.reservePrice;
         if (feeBase > 0) {
-            uint256 fee = feeBase * _auctionFee / 1_000;
-            _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
+            uint256 fee = feeBase * _auctionFee / 1000;
+            _sendPayTokenAmount(auction.paymentToken, payable(_feeRecipient), fee);
             return fee;
         }
         return 0;
+    }
+
+    /**
+    * @notice Calculate and take listing fee
+    * @param listing Listing to calculate fee from
+    * @return uint256 - taken fee
+    */
+    function _calculateAndTakeListingFee(Listing memory listing) internal returns (uint256) {
+        uint256 fee = listing.price * _listingFee / 1000;
+        _transferPayTokenAmount(listing.paymentToken, _msgSender(), payable(_feeRecipient), fee);
+        return fee;
     }
 
     /**
@@ -188,15 +220,26 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param to Receiver address
      * @param amount Amount to transfer
      */
-    function _sendPayTokenAmount(address payToken, address to, uint256 amount) internal {
+    function _sendPayTokenAmount(address payToken, address payable to, uint256 amount) internal {
         IERC20(payToken).safeTransfer(to, amount);
+    }
+
+    /**
+     * @notice Transfer ERC20 amount
+     * @param payToken Address of ERC20
+     * @param from Sender address
+     * @param to Receiver address
+     * @param amount Amount to transfer
+     */
+    function _transferPayTokenAmount(address payToken, address from, address payable to, uint256 amount) internal {
+        IERC20(payToken).safeTransferFrom(from, to, amount);
     }
 
     /**
      * @notice Validate payment token is enabled
      * @param paymentToken Payment token address
      */
-    function _validatePaymentTokenIsEnabled(address paymentToken) internal {
+    function _validatePaymentTokenIsEnabled(address paymentToken) internal view {
         require(
             _getPaymentTokenRegistry().isEnabled(paymentToken),
             'MarketplaceBase: payment token is not enabled'
@@ -269,7 +312,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     function _validateAuctionHighestBidIsWithdrawable(
         Auction memory auction,
         HighestBid memory highestBid
-    ) internal {
+    ) internal view {
         // must wait when bid is above or equal reserve price
         if (_auctionHighestBidAboveOrEqualReservePrice(auction, highestBid)) {
             require(
@@ -383,7 +426,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         Auction memory auction,
         HighestBid memory highestBid,
         uint256 bidAmount
-    ) internal {
+    ) internal view {
         // bid amount must be increased at least by minimal bid increment amount
         uint256 minBidAmount = highestBid.bidAmount + _minBidIncrementAmount;
         require(bidAmount >= minBidAmount, 'MarketplaceBase: low bid amount');
@@ -401,6 +444,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _validateAuctionBidderNotOwner(Auction memory auction, address bidder) internal pure {
         require(auction.owner != bidder, 'MarketplaceBase: bidder auction owner');
+    }
+
+    /**
+     * @notice Validate new listing time
+     * @param startTime Start time as unix time
+     */
+    function _validateNewListingTime(uint256 startTime) internal view {
+        require(startTime >= _getNow(), 'MarketplaceBase: invalid start time');
     }
 
     /**
@@ -464,7 +515,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Get payment token registry contract
      * @return IPaymentTokenRegistry
      */
-    function _getPaymentTokenRegistry() internal returns (IPaymentTokenRegistry) {
+    function _getPaymentTokenRegistry() internal view returns (IPaymentTokenRegistry) {
         return IPaymentTokenRegistry(_addressRegistry.getPaymentTokenRegistryAddress());
     }
 
