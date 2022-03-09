@@ -173,6 +173,28 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+    * @notice Calculate and take royalty fee
+    * @param nft NFT address
+    * @param tokenId Token identifier
+    * @param paymentToken Payment token
+    * @param payAmount Payment amount
+    * @return uint256
+    */
+    function _calculateAndTakeRoyaltyFee(
+        NFTAddress nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 payAmount
+    ) internal returns (uint256) {
+        (address recipient, uint256 royaltyAmount) = _getRoyaltyRegistry().royaltyInfo(nft, tokenId, payAmount);
+        if (recipient != address(0) && royaltyAmount > 0) {
+            _sendPayTokenAmount(paymentToken, recipient, royaltyAmount);
+            return royaltyAmount;
+        }
+        return 0;
+    }
+
+    /**
      * @notice Receive pay token amount
      * @param payToken Address of ERC20
      * @param from Sender address
@@ -217,14 +239,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
             endTime >= (startTime + MIN_AUCTION_DURATION),
             "MarketplaceBase: Auction time does not meet minimum duration"
         );
-    }
-
-    /**
-     * @notice Validate auction has not resulted
-     * @param auction Auction to validate
-     */
-    function _validateAuctionNotResulted(Auction memory auction) internal pure {
-        require(! _auctionResulted(auction), 'MarketplaceBase: auction resulted');
     }
 
     /**
@@ -315,14 +329,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
             ! _auctionHighestBidAboveOrEqualReservePrice(auction, highestBid),
             'MarketplaceBase: highest bid above reserve price'
         );
-    }
-
-    /**
-     * @notice Validate auction has resulted
-     * @param auction Auction to validate
-     */
-    function _validateAuctionResulted(Auction memory auction) internal pure {
-        require(_auctionResulted(auction), 'MarketplaceBase: auction not resulted');
     }
 
     /**
@@ -449,15 +455,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _auctionEnded(Auction memory auction) internal view returns (bool) {
         return auction.endTime <= _getNow();
-    }
-
-    /**
-     * @notice Check auction has resulted
-     * @param auction Auction to check
-     * @return bool
-     */
-    function _auctionResulted(Auction memory auction) internal pure returns (bool) {
-        return auction.hasResulted;
     }
 
     /**

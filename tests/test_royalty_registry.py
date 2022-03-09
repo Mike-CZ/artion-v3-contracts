@@ -56,7 +56,7 @@ def test_royalty_info(
         erc1155_collection_mock,
         royalty_recipient
 ):
-    """Test royalty info with token set"""
+    """Test royalty info"""
 
     # dynamically call setup function
     locals()[setup_function]()
