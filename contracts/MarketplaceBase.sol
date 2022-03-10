@@ -241,8 +241,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param to Receiver address
      * @param amount Amount to transfer
      */
-    function _sendPayTokenAmount(address payToken, address payable to, uint256 amount) internal {
-        IERC20(payToken).safeTransfer(to, amount);
+    function _sendPayTokenAmount(address payToken, address to, uint256 amount) internal {
+        IERC20(payToken).safeTransfer(payable(to), amount);
     }
 
     /**
@@ -252,8 +252,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param to Receiver address
      * @param amount Amount to transfer
      */
-    function _transferPayTokenAmount(address payToken, address from, address payable to, uint256 amount) internal {
-        IERC20(payToken).safeTransferFrom(from, to, amount);
+    function _transferPayTokenAmount(address payToken, address from, address to, uint256 amount) internal {
+        IERC20(payToken).safeTransferFrom(from, payable(to), amount);
     }
 
     /**
