@@ -184,9 +184,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         Auction memory auction,
         HighestBid memory highestBid
     ) internal returns (uint256) {
-        uint256 feeBase = highestBid.bidAmount - auction.reservePrice;
-        if (feeBase > 0) {
-            uint256 fee = feeBase * _auctionFee / 1000;
+        if (highestBid.bidAmount > auction.reservePrice) {
+            uint256 fee = (highestBid.bidAmount - auction.reservePrice) * _auctionFee / 1_000;
             _sendPayTokenAmount(auction.paymentToken, payable(_feeRecipient), fee);
             return fee;
         }
@@ -202,6 +201,28 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         uint256 fee = listing.price * _listingFee / 1000;
         _transferPayTokenAmount(listing.paymentToken, _msgSender(), payable(_feeRecipient), fee);
         return fee;
+    }
+
+    /**
+    * @notice Calculate and take royalty fee
+    * @param nft NFT address
+    * @param tokenId Token identifier
+    * @param paymentToken Payment token
+    * @param payAmount Payment amount
+    * @return uint256
+    */
+    function _calculateAndTakeRoyaltyFee(
+        NFTAddress nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 payAmount
+    ) internal returns (uint256) {
+        (address recipient, uint256 royaltyAmount) = _getRoyaltyRegistry().royaltyInfo(nft, tokenId, payAmount);
+        if (recipient != address(0) && royaltyAmount > 0) {
+            _sendPayTokenAmount(paymentToken, recipient, royaltyAmount);
+            return royaltyAmount;
+        }
+        return 0;
     }
 
     /**
@@ -239,7 +260,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate payment token is enabled
      * @param paymentToken Payment token address
      */
-    function _validatePaymentTokenIsEnabled(address paymentToken) internal view {
+    function _validatePaymentTokenIsEnabled(address paymentToken) internal {
         require(
             _getPaymentTokenRegistry().isEnabled(paymentToken),
             'MarketplaceBase: payment token is not enabled'
@@ -263,20 +284,21 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate auction has not resulted
-     * @param auction Auction to validate
-     */
-    function _validateAuctionNotResulted(Auction memory auction) internal pure {
-        require(! _auctionResulted(auction), 'MarketplaceBase: auction resulted');
-    }
-
-    /**
      * @notice Validate address is auction owner
      * @param auction Auction to validate
      * @param entrant Address to validate
      */
     function _validateAuctionOwner(Auction memory auction, address entrant) internal pure {
         require(auction.owner == entrant, 'MarketplaceBase: not owner');
+    }
+
+    /**
+     * @notice Validate auction reserve price update
+     * @param auction Auction to validate
+     * @param reservePrice Reserve price to validate
+     */
+    function _validateAuctionReservePriceUpdate(Auction memory auction, uint256 reservePrice) internal pure {
+        require(auction.reservePrice > reservePrice, 'MarketplaceBase: reserve price can only decrease');
     }
 
     /**
@@ -312,7 +334,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     function _validateAuctionHighestBidIsWithdrawable(
         Auction memory auction,
         HighestBid memory highestBid
-    ) internal view {
+    ) internal {
         // must wait when bid is above or equal reserve price
         if (_auctionHighestBidAboveOrEqualReservePrice(auction, highestBid)) {
             require(
@@ -361,14 +383,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate auction has resulted
-     * @param auction Auction to validate
-     */
-    function _validateAuctionResulted(Auction memory auction) internal pure {
-        require(_auctionResulted(auction), 'MarketplaceBase: auction not resulted');
-    }
-
-    /**
      * @notice Validate auction exists
      * @param auction Auction to validate
      */
@@ -388,7 +402,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has started
      * @param auction Auction to validate
      */
-    function _validateAuctionStarted(Auction memory auction) internal view {
+    function _validateAuctionStarted(Auction memory auction) internal {
         require(_auctionStarted(auction), 'MarketplaceBase: auction not started');
     }
 
@@ -396,7 +410,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has not started
      * @param auction Auction to validate
      */
-    function _validateAuctionNotStarted(Auction memory auction) internal view {
+    function _validateAuctionNotStarted(Auction memory auction) internal {
         require(! _auctionStarted(auction), 'MarketplaceBase: auction started');
     }
 
@@ -404,7 +418,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has ended
      * @param auction Auction to validate
      */
-    function _validateAuctionEnded(Auction memory auction) internal view {
+    function _validateAuctionEnded(Auction memory auction) internal {
         require(_auctionEnded(auction), 'MarketplaceBase: auction not ended');
     }
 
@@ -412,7 +426,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has not ended
      * @param auction Auction to validate
      */
-    function _validateAuctionNotEnded(Auction memory auction) internal view {
+    function _validateAuctionNotEnded(Auction memory auction) internal {
         require(! _auctionEnded(auction), 'MarketplaceBase: auction ended');
     }
 
@@ -426,7 +440,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         Auction memory auction,
         HighestBid memory highestBid,
         uint256 bidAmount
-    ) internal view {
+    ) internal {
         // bid amount must be increased at least by minimal bid increment amount
         uint256 minBidAmount = highestBid.bidAmount + _minBidIncrementAmount;
         require(bidAmount >= minBidAmount, 'MarketplaceBase: low bid amount');
@@ -450,7 +464,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate new listing time
      * @param startTime Start time as unix time
      */
-    function _validateNewListingTime(uint256 startTime) internal view {
+    function _validateNewListingTime(uint256 startTime) internal {
         require(startTime >= _getNow(), 'MarketplaceBase: invalid start time');
     }
 
@@ -503,19 +517,10 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Check auction has resulted
-     * @param auction Auction to check
-     * @return bool
-     */
-    function _auctionResulted(Auction memory auction) internal pure returns (bool) {
-        return auction.hasResulted;
-    }
-
-    /**
      * @notice Get payment token registry contract
      * @return IPaymentTokenRegistry
      */
-    function _getPaymentTokenRegistry() internal view returns (IPaymentTokenRegistry) {
+    function _getPaymentTokenRegistry() internal returns (IPaymentTokenRegistry) {
         return IPaymentTokenRegistry(_addressRegistry.getPaymentTokenRegistryAddress());
     }
 
