@@ -168,7 +168,23 @@ def test_create_auction(
     assert erc1155_collection_mock.balanceOf(seller, token_id) == token_amount - auction_token_amount
     assert erc1155_collection_mock.balanceOf(erc1155_marketplace_mock, token_id) == auction_token_amount
 
-    # TODO: events etc...
+    # asset event emitted correctly
+    assert tx.events['AuctionCreated'] is not None
+    assert tx.events['AuctionCreated']['nftAddress'] == erc1155_collection_mock.address
+    assert tx.events['AuctionCreated']['tokenId'] == token_id
+    assert tx.events['AuctionCreated']['owner'] == seller.address
+    assert tx.events['AuctionCreated']['tokenAmount'] == auction_token_amount
+    assert tx.events['AuctionCreated']['payToken'] == erc20_mock.address
+
+    # assert auction created
+    auction = erc1155_marketplace_mock.getAuction(erc1155_collection_mock, token_id, seller)
+    assert auction[0][0] == seller.address
+    assert auction[0][1] == erc20_mock.address
+    assert auction[0][2] == reserve_price
+    assert auction[0][3] == is_min_bid_reserve_price
+    assert auction[0][4] == start_time
+    assert auction[0][5] == end_time
+    assert auction[1] == auction_token_amount
 
 
 def test_create_action_invalid_token_type(
@@ -585,9 +601,6 @@ def test_cancel_auction_action_not_exist(erc1155_marketplace_mock, erc1155_colle
         erc1155_marketplace_mock.cancelAuction(erc1155_collection_mock, AuctionParams.token_id, {'from': seller})
 
 
-# TODO: TEST CANCEL WHEN RESULTED
-
-
 def test_cancel_auction_highest_bid_equal_reserve_price(
         erc1155_marketplace_mock,
         erc1155_collection_mock,
@@ -729,6 +742,14 @@ def test_finish_auction(
     assert tx.events['AuctionFinished']['tokenAmount'] == AuctionParams.token_amount
     assert tx.events['AuctionFinished']['winningBid'] == price
 
+    # assert auction does not exist
+    assert erc1155_marketplace_mock.getAuction(erc1155_collection_mock, AuctionParams.token_id, seller)[0][0] == \
+           ZERO_ADDRESS
+
+    # assert bid does not exist
+    assert erc1155_marketplace_mock.getHighestBid(erc1155_collection_mock, AuctionParams.token_id, seller)[0] == \
+           ZERO_ADDRESS
+
 
 def test_finish_auction_from_bidder(
         erc1155_marketplace_mock,
@@ -740,6 +761,47 @@ def test_finish_auction_from_bidder(
     """Test finish auction from bidder"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price)
     erc1155_marketplace_mock.finishAuction(erc1155_collection_mock, AuctionParams.token_id, seller, {'from': bidder})
+
+
+def test_finish_auction_not_exist(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        seller,
+        bidder
+):
+    """Test finish auction when not exist"""
+    with reverts('MarketplaceBase: auction not exist'):
+        erc1155_marketplace_mock.finishAuction(
+            erc1155_collection_mock, AuctionParams.token_id, seller, {'from': bidder}
+        )
+
+
+def test_finish_auction_not_ended(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction_with_bid,
+        seller,
+        bidder
+):
+    """Test finish auction when not ended"""
+    setup_auction_with_bid(bid_amount=AuctionParams.reserve_price)
+    with reverts('MarketplaceBase: auction not ended'):
+        erc1155_marketplace_mock.finishAuction(erc1155_collection_mock, AuctionParams.token_id, seller, {'from': bidder})
+
+
+def test_finish_auction_without_bid(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction,
+        seller,
+        bidder
+):
+    """Test finish auction when bid does not exist"""
+    setup_auction(status=AuctionStatus.ENDED)
+    with reverts('MarketplaceBase: highest bid not exist'):
+        erc1155_marketplace_mock.finishAuction(
+            erc1155_collection_mock, AuctionParams.token_id, seller, {'from': bidder}
+        )
 
 
 def test_finish_auction_not_owner_or_bidder(
@@ -756,3 +818,112 @@ def test_finish_auction_not_owner_or_bidder(
             erc1155_collection_mock, AuctionParams.token_id, seller, {'from': outbidder}
         )
 
+
+def test_finish_auction_low_bid(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction_with_bid,
+        seller
+):
+    """Test finish auction when bid is below reserve price"""
+    setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price - 1)
+    with reverts('MarketplaceBase: highest bid below reserve price'):
+        erc1155_marketplace_mock.finishAuction(
+            erc1155_collection_mock, AuctionParams.token_id, seller, {'from': seller}
+        )
+
+
+def test_finish_auction_below_reserve_price(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction_with_bid,
+        seller
+):
+    """Test finish auction below reserve price"""
+    setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price - 1)
+    erc1155_marketplace_mock.finishAuctionBelowReservePrice(
+        erc1155_collection_mock, AuctionParams.token_id, seller, {'from': seller}
+    )
+
+
+def test_finish_auction_below_reserve_price_not_owner(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction_with_bid,
+        seller,
+        bidder
+):
+    """Test finish auction below reserve price when not auction owner"""
+    setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price - 1)
+    with reverts('MarketplaceBase: not owner'):
+        erc1155_marketplace_mock.finishAuctionBelowReservePrice(
+            erc1155_collection_mock, AuctionParams.token_id, seller, {'from': bidder}
+        )
+
+
+def test_finish_auction_below_reserve_price_above_reserve_price(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction_with_bid,
+        seller
+):
+    """Test finish auction below reserve price when bid is above reserve price"""
+    setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price + 1)
+    with reverts('MarketplaceBase: highest bid above reserve price'):
+        erc1155_marketplace_mock.finishAuctionBelowReservePrice(
+            erc1155_collection_mock, AuctionParams.token_id, seller, {'from': seller}
+        )
+
+
+def test_update_auction_reserve_price(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction,
+        seller
+):
+    """Test update auction reserve price"""
+    setup_auction()
+
+    reserve_price = AuctionParams.reserve_price - 1
+
+    tx = erc1155_marketplace_mock.updateAuctionReservePrice(
+        erc1155_collection_mock, AuctionParams.token_id, reserve_price, {'from': seller}
+    )
+
+    # assert reserve price changed
+    assert erc1155_marketplace_mock.getAuction(erc1155_collection_mock, AuctionParams.token_id, seller)[0][2] == \
+           reserve_price
+
+    # assert event emitted
+    assert tx.events['AuctionReservePriceUpdated'] is not None
+    assert tx.events['AuctionReservePriceUpdated']['nftAddress'] == erc1155_collection_mock.address
+    assert tx.events['AuctionReservePriceUpdated']['tokenId'] == AuctionParams.token_id
+    assert tx.events['AuctionReservePriceUpdated']['owner'] == seller.address
+    assert tx.events['AuctionReservePriceUpdated']['reservePrice'] == reserve_price
+
+
+def test_update_auction_reserve_price_auction_not_exist(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        seller
+):
+    """Test update auction reserve price when auction does not exist"""
+    with reverts('MarketplaceBase: auction not exist'):
+        erc1155_marketplace_mock.updateAuctionReservePrice(
+            erc1155_collection_mock, AuctionParams.token_id, AuctionParams.reserve_price - 1, {'from': seller}
+        )
+
+
+def test_update_auction_reserve_price_above_reserve_price(
+        erc1155_marketplace_mock,
+        erc1155_collection_mock,
+        setup_auction,
+        seller
+):
+    """Test update auction reserve price when new reserve price is above previous"""
+    setup_auction()
+
+    with reverts('MarketplaceBase: reserve price can only decrease'):
+        erc1155_marketplace_mock.updateAuctionReservePrice(
+            erc1155_collection_mock, AuctionParams.token_id, AuctionParams.reserve_price + 1, {'from': seller}
+        )

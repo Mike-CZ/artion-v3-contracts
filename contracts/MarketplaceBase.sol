@@ -163,9 +163,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         Auction memory auction,
         HighestBid memory highestBid
     ) internal returns (uint256) {
-        uint256 feeBase = highestBid.bidAmount - auction.reservePrice;
-        if (feeBase > 0) {
-            uint256 fee = feeBase * _auctionFee / 1_000;
+        if (highestBid.bidAmount > auction.reservePrice) {
+            uint256 fee = (highestBid.bidAmount - auction.reservePrice) * _auctionFee / 1_000;
             _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
             return fee;
         }
@@ -248,6 +247,15 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _validateAuctionOwner(Auction memory auction, address entrant) internal pure {
         require(auction.owner == entrant, 'MarketplaceBase: not owner');
+    }
+
+    /**
+     * @notice Validate auction reserve price update
+     * @param auction Auction to validate
+     * @param reservePrice Reserve price to validate
+     */
+    function _validateAuctionReservePriceUpdate(Auction memory auction, uint256 reservePrice) internal pure {
+        require(auction.reservePrice > reservePrice, 'MarketplaceBase: reserve price can only decrease');
     }
 
     /**

@@ -103,6 +103,8 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
         _createAuctionAndTransferToken(
             nft, tokenId, amount, _msgSender(), paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
         );
+
+        emit AuctionCreated(nft.toAddress(), tokenId, _msgSender(), amount, paymentToken);
     }
 
     /**
@@ -164,6 +166,29 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
         _validateAuctionHighestBidBelowReservePrice(erc1155Auction.auction, highestBid);
 
         _finishAuctionSuccessFully(nft, tokenId, erc1155Auction, highestBid);
+    }
+
+    /**
+     * @notice Update auction reserve price
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param reservePrice New reserve price
+     */
+    function updateAuctionReservePrice(NFTAddress nft, uint256 tokenId, uint256 reservePrice) public {
+        ERC1155Auction memory erc1155Auction = getAuction(nft, tokenId, _msgSender());
+
+        _validateAuctionExists(erc1155Auction.auction);
+
+        _validateAuctionReservePriceUpdate(erc1155Auction.auction, reservePrice);
+
+        _auctions[nft.toAddress()][tokenId][_msgSender()].auction.reservePrice = reservePrice;
+
+        emit AuctionReservePriceUpdated(
+            nft.toAddress(),
+            tokenId,
+            _msgSender(),
+            reservePrice
+        );
     }
 
     /**
