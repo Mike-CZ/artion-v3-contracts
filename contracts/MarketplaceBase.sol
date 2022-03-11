@@ -238,7 +238,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate payment token is enabled
      * @param paymentToken Payment token address
      */
-    function _validatePaymentTokenIsEnabled(address paymentToken) internal view {
+    function _validatePaymentTokenIsEnabled(address paymentToken) internal {
         require(
             _getPaymentTokenRegistry().isEnabled(paymentToken),
             'MarketplaceBase: payment token is not enabled'
@@ -450,6 +450,22 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _validateNewListingTime(uint256 startTime) internal view {
         require(startTime >= _getNow(), 'MarketplaceBase: invalid start time');
+    }
+
+    /**
+     * @notice Validate offer ownership
+     * @param offeror Owner and creator of the offer
+     */
+    function _validateOfferOwnership(address offeror) internal view {
+        require(offeror == _msgSender(), 'MarketplaceBase: NOT an offer owner');
+    }
+
+    /**
+     * @notice Validate offer expiration time
+     * @param expirationTime Expiration time as unix time
+     */
+    function _validateOfferExpirationTime(uint256 expirationTime) internal view {
+        require(expirationTime >= _getNow(), 'MarketplaceBase: invalid expiration time');
     }
 
     /**

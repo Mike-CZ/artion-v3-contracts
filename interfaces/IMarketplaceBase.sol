@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
+import "openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../contracts/library/NFTTradable.sol";
 
 /**
@@ -27,10 +28,18 @@ interface IMarketplaceBase {
 
     /// @notice Structure for listed items
     struct Listing {
-        address payable owner;
+        address payable nftOwner;
         address paymentToken;
         uint256 price;
         uint256 startingTime;
+    }
+
+    /// @notice Structure for offer
+    struct Offer {
+        address paymentToken;
+        address offeror;
+        uint256 price;
+        uint256 expirationTime;
     }
 
     event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
@@ -61,8 +70,8 @@ interface IMarketplaceBase {
 
     // @notice Events for listing
     event ListingCreated(
-        address indexed owner,
-        address indexed nft,
+        address indexed nftOwner,
+        address indexed nftAddress,
         uint256 indexed tokenId,
         address paymentToken,
         uint256 price,
@@ -70,25 +79,41 @@ interface IMarketplaceBase {
     );
 
     event ListingUpdated(
-        address indexed owner,
-        address indexed nft,
+        address indexed nftOwner,
+        address indexed nftAddress,
         uint256 indexed tokenId,
         address newPaymentToken,
         uint256 newPrice
     );
 
     event ListingCanceled(
-        address indexed owner,
-        address indexed nft,
+        address indexed nftOwner,
+        address indexed nftAddress,
         uint256 indexed tokenId
     );
 
     event ListedItemSold(
         address indexed seller,
         address indexed buyer,
-        address indexed nft,
+        address indexed nftAddress,
         uint256 tokenId,
         uint256 price,
         address paymentToken
+    );
+
+    // @notice Events for offers
+    event OfferCreated(
+        address indexed offeror,
+        address indexed nftAddress,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 price,
+        uint256 expirationTime
+    );
+
+    event OfferCanceled(
+        address indexed offeror,
+        address indexed nftAddress,
+        uint256 tokenId
     );
 }

@@ -50,8 +50,8 @@ def test_create_listing(payment_token, minted_and_approved_token_id, erc721_mark
 
     # check event
     assert tx.events["ListingCreated"] is not None
-    assert tx.events["ListingCreated"]["owner"] == user
-    assert tx.events["ListingCreated"]["nft"] == erc721_collection_mock
+    assert tx.events["ListingCreated"]["nftOwner"] == user
+    assert tx.events["ListingCreated"]["nftAddress"] == erc721_collection_mock
     assert tx.events["ListingCreated"]["tokenId"] == minted_and_approved_token_id
     assert tx.events["ListingCreated"]["paymentToken"] == payment_token.address
     assert tx.events["ListingCreated"]["price"] == ListingParams.price
@@ -106,13 +106,13 @@ def test_listing_not_erc721(payment_token, erc721_marketplace, erc1155_collectio
         )
 
 
-def test_invalid_start_time(payment_token, erc721_marketplace, erc1155_collection_mock, erc721_collection_mint, user):
+def test_invalid_start_time(payment_token, erc721_marketplace, erc721_collection_mock, erc721_collection_mint, user):
     """Test listing with start time in the past"""
     token_id = 1
 
     with reverts('MarketplaceBase: invalid start time'):
         erc721_marketplace.createListing(
-            erc1155_collection_mock,
+            erc721_collection_mock,
             token_id,
             user,
             payment_token,
@@ -202,8 +202,8 @@ def test_update_listing(
 
     # check event
     assert tx.events["ListingUpdated"] is not None
-    assert tx.events["ListingUpdated"]["owner"] == user
-    assert tx.events["ListingUpdated"]["nft"] == erc721_collection_mock
+    assert tx.events["ListingUpdated"]["nftOwner"] == user
+    assert tx.events["ListingUpdated"]["nftAddress"] == erc721_collection_mock
     assert tx.events["ListingUpdated"]["tokenId"] == minted_and_approved_token_id
     assert tx.events["ListingUpdated"]["newPaymentToken"] == TOMB_TOKEN
     assert tx.events["ListingUpdated"]["newPrice"] == updated_listing_price
@@ -282,8 +282,8 @@ def test_cancel_listing(payment_token, minted_and_approved_token_id, erc721_mark
 
     # check event
     assert tx.events["ListingCanceled"] is not None
-    assert tx.events["ListingCanceled"]["owner"] == user
-    assert tx.events["ListingCanceled"]["nft"] == erc721_collection_mock
+    assert tx.events["ListingCanceled"]["nftOwner"] == user
+    assert tx.events["ListingCanceled"]["nftAddress"] == erc721_collection_mock
     assert tx.events["ListingCanceled"]["tokenId"] == minted_and_approved_token_id
 
 
@@ -352,7 +352,7 @@ def test_buy_listed_nft(
     assert tx.events["ListedItemSold"] is not None
     assert tx.events["ListedItemSold"]["seller"] == user
     assert tx.events["ListedItemSold"]["buyer"] == user_2
-    assert tx.events["ListedItemSold"]["nft"] == erc721_collection_mock
+    assert tx.events["ListedItemSold"]["nftAddress"] == erc721_collection_mock
     assert tx.events["ListedItemSold"]["tokenId"] == minted_and_approved_token_id
     assert tx.events["ListedItemSold"]["price"] == ListingParams.price
     assert tx.events["ListedItemSold"]["paymentToken"] == payment_token
