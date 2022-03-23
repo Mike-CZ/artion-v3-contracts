@@ -273,6 +273,9 @@ def test_cancel_listing(payment_token, minted_and_approved_token_id, erc721_mark
         {'from': user}
     )
 
+    # assert token has been returned from escrow to original owner
+    assert erc721_collection_mock.ownerOf(minted_and_approved_token_id) == user
+
     # assert listing was canceled
     listing = erc721_marketplace.getListing(erc721_collection_mock, minted_and_approved_token_id)
     assert listing[0] == '0x0000000000000000000000000000000000000000'
@@ -285,6 +288,35 @@ def test_cancel_listing(payment_token, minted_and_approved_token_id, erc721_mark
     assert tx.events["ListingCanceled"]["nftOwner"] == user
     assert tx.events["ListingCanceled"]["nftAddress"] == erc721_collection_mock
     assert tx.events["ListingCanceled"]["tokenId"] == minted_and_approved_token_id
+
+
+def test_cancel_listing_as_not_owner(
+        payment_token,
+        minted_and_approved_token_id,
+        erc721_marketplace,
+        erc721_collection_mock,
+        user,
+        user_2
+):
+    """Test listing cancelling as not owner of NFT"""
+    # create listing
+    erc721_marketplace.createListing(
+        erc721_collection_mock,
+        minted_and_approved_token_id,
+        user,
+        payment_token,
+        ListingParams.price,
+        ListingParams.start_time,
+        {'from': user}
+    )
+
+    # cancel listing
+    with reverts('ERC721Marketplace: does not own the token'):
+        erc721_marketplace.cancelListing(
+            erc721_collection_mock,
+            minted_and_approved_token_id,
+            {'from': user_2}
+        )
 
 
 def test_cancel_not_listed(minted_and_approved_token_id, erc721_marketplace, erc721_collection_mock, user):
@@ -416,7 +448,7 @@ def test_buy_listed_token_before_start_time(
     payment_token.approve(erc721_marketplace, ListingParams.price, {"from": user_2})
 
     # try buying listed NFT
-    with reverts('ERC721Marketplace: listing has not started yet'):
+    with reverts('MarketplaceBase: listing has not started yet'):
         erc721_marketplace.buyListedItem(
             erc721_collection_mock,
             minted_and_approved_token_id,
