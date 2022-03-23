@@ -40,6 +40,7 @@ interface IMarketplaceBase {
         address offeror;
         uint256 price;
         uint256 expirationTime;
+        bool paymentTokensInEscrow;
     }
 
     event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
@@ -115,5 +116,14 @@ interface IMarketplaceBase {
         address indexed offeror,
         address indexed nftAddress,
         uint256 tokenId
+    );
+
+    event OfferAccepted(
+        address indexed nftAddress,
+        uint256 tokenId,
+        address indexed buyer,
+        address seller,
+        uint256 price,
+        address paymentToken
     );
 }

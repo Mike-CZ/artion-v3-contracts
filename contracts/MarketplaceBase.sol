@@ -45,19 +45,30 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     */
     uint256 internal _listingFee = 25;
 
+    /*
+    * @notice offer fee, assumed to be 1 decimal place i.e. 25 = 2,5%
+    */
+    uint256 internal _offerFee = 25;
+
     /**
     * @notice recipient of fees
     */
     address internal _feeRecipient;
 
     /**
+    * @notice recipient of fees
+    */
+    bool internal _escrowOfferPaymentTokens;
+
+    /**
     * @notice address registry containing addresses of other contracts
     */
     IAddressRegistry internal _addressRegistry;
 
-    constructor(address addressRegistry, address feeRecipient) {
+    constructor(address addressRegistry, address feeRecipient, bool escrowOfferPaymentTokens) {
         _addressRegistry = IAddressRegistry(addressRegistry);
         _feeRecipient = feeRecipient;
+        _escrowOfferPaymentTokens = escrowOfferPaymentTokens;
     }
 
     /**
@@ -108,6 +119,23 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         _listingFee = listingFee;
     }
 
+
+    /**
+    * @notice Get offer fee
+    * @return uint256
+    */
+    function getOfferFee() public view returns (uint256) {
+        return _offerFee;
+    }
+
+    /**
+     * @notice Update offer fee
+     * @param offerFee Fee amount - assumed to be 1 decimal place i.e. 25 = 2,5%
+     */
+    function updateOfferFee(uint256 offerFee) public onlyOwner {
+        _offerFee = offerFee;
+    }
+
     /**
     * @notice Get fee recipient
     * @return address
@@ -122,6 +150,22 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function updateFeeRecipient(address feeRecipient) public onlyOwner {
         _feeRecipient = feeRecipient;
+    }
+
+    /**
+    * @notice Get flag if payment tokens from new offers should be stored in escrow
+    * @return bool
+    */
+    function getEscrowOfferPaymentTokens() public view returns (bool) {
+        return _escrowOfferPaymentTokens;
+    }
+
+    /**
+     * @notice Update flag if payment tokens from new offers should be stored in escrow
+     * @param escrowOfferPaymentTokens payment tokens should be stored in escrow
+     */
+    function updateEscrowOfferPaymentTokens(bool escrowOfferPaymentTokens) public onlyOwner {
+        _escrowOfferPaymentTokens = escrowOfferPaymentTokens;
     }
 
     /**
@@ -192,6 +236,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         return 0;
     }
 
+    // DISCUSS: Merge fee calculation into one function?
     /**
     * @notice Calculate and take listing fee
     * @param listing Listing to calculate fee from
@@ -200,6 +245,26 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     function _calculateAndTakeListingFee(Listing memory listing) internal returns (uint256) {
         uint256 fee = listing.price * _listingFee / 1000;
         _transferPayTokenAmount(listing.paymentToken, _msgSender(), payable(_feeRecipient), fee);
+        return fee;
+    }
+
+    /**
+    * @notice Calculate and take offer fee
+    * @param offer Offer to calculate fee from
+    * @return uint256 - taken fee
+    */
+    function _calculateAndTakeOfferFee(Offer memory offer) internal returns (uint256) {
+        uint256 fee = offer.price * _offerFee / 1000;
+
+        // If offer was created when payment tokens were not stored in escrow,
+        // transfer payment tokens from offeror to fee recipient
+        // otherwise transfer payment tokens from escrow to fee recipient
+        if (!offer.paymentTokensInEscrow) {
+            _transferPayTokenAmount(offer.paymentToken, offer.offeror, payable(_feeRecipient), fee);
+        } else {
+            _sendPayTokenAmount(offer.paymentToken, payable(_feeRecipient), fee);
+        }
+
         return fee;
     }
 
@@ -453,6 +518,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Validate that listing has started already
+     * @param startTime Start time as unix time
+     */
+    function _validateListingStarted(uint256 startTime) internal view {
+        require(_getNow() >= startTime, "MarketplaceBase: listing has not started yet");
+    }
+
+    /**
      * @notice Validate offer ownership
      * @param offeror Owner and creator of the offer
      */
@@ -466,6 +539,16 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _validateOfferExpirationTime(uint256 expirationTime) internal view {
         require(expirationTime >= _getNow(), 'MarketplaceBase: invalid expiration time');
+    }
+
+    /**
+     * @notice Validate if offeror has enough of payment tokens
+     * @param offeror Creator of the offer
+     * @param paymentToken ERC20 payment token
+     * @param price Total amount of payment tokens
+     */
+    function _validateOfferorPaymentTokenAmount(address offeror, address paymentToken, uint256 price) internal {
+        require(IERC20(paymentToken).balanceOf(offeror) >= price,  "MarketplaceBase: offeror hasn't got enough funds");
     }
 
     /**
