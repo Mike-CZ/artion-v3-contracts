@@ -24,14 +24,6 @@ interface IMarketplaceBase {
         uint256 time;
     }
 
-    event AuctionCreated(
-        address indexed nftAddress,
-        uint256 indexed tokenId,
-        address indexed owner,
-        uint256 tokenAmount,
-        address payToken
-    );
-
     /// @notice Structure for listed items
     struct Listing {
         address payable owner;

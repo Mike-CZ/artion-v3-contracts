@@ -1,21 +1,15 @@
-from brownie import reverts, ERC20TokenMock, ERC1155CollectionMock
+from brownie import chain, ERC20TokenMock, ERC1155CollectionMock
 from brownie.test import strategy
 from brownie.network import Accounts
 from brownie.network.contract import ProjectContract
 from brownie.network.account import LocalAccount
-from typing import Callable, List, Dict, DefaultDict
+from typing import Callable, List, Dict, DefaultDict, Optional, Tuple
 from dataclasses import dataclass
+from collections import defaultdict
 import utils
 import random
 
 ACCOUNT_ERC20_AMOUNT = 1_000_000
-
-
-@dataclass(frozen=True)
-class NFT:
-    contract: ProjectContract
-    owner: LocalAccount
-    token_amount: int
 
 
 class StateMachine:
@@ -31,26 +25,74 @@ class StateMachine:
         self.owner = owner
         self.marketplace = erc1155_marketplace_mock
         self.payment_token_registry = payment_token_registry
-        self.accounts: List[LocalAccount] = list(filter(lambda x: x.address != owner.address, accounts))
-        self.nft_tokens: Dict[str, Dict[int, NFT]] = {}
-        self.payment_tokens: Dict[str, ProjectContract] = {}
-        self.balances: Dict[str, Dict[str, int]] = {}
-        self.nft_balances
+        self.accounts = accounts
+        self.available_accounts: List[LocalAccount] = list(filter(lambda x: x.address != owner.address, accounts))
+
+        self.time = chain.time()
+
+        # dicts of deployed payment tokens and nf tokens
+        self.erc20_contracts: Dict[str, ProjectContract] = {}
+        self.erc1155_contracts: Dict[str, ProjectContract] = {}
+
+        # dicts of account payment token balances and nf tokens balances
+        self.balances: DefaultDict[str, DefaultDict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self.nft_balances: DefaultDict[str, DefaultDict[str, DefaultDict[int, int]]] = \
+            defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
         StateMachine._init_payment_tokens(self)
         StateMachine._init_nft_tokens(self)
+
+    def rule_create_auction(self):
+        data = self._get_owner_with_nft()
+        if data is None or data[0] == self.marketplace.address:
+            return
+
+        nft_owner, nft_contract, token_id, token_amount = data
+        auction_amount = random.randint(1, token_amount)
+        erc20 = random.choice(list(self.erc20_contracts.values()))
+
+        nft_contract.setApprovalForAll(self.marketplace, True, {'from': nft_owner})
+
+        self.marketplace.createAuction(
+            nft_contract,
+            token_id,
+            auction_amount,
+            erc20,
+            1,
+            self.time + 1,
+            self.time + 1000,
+            False,
+            {'from': nft_owner}
+        )
+
+        self._subtract_nft_amount(nft_owner, nft_contract, token_id, auction_amount)
+        self._add_nft_amount(self.marketplace.address, nft_contract, token_id, auction_amount)
+
+    def _get_owner_with_nft(self) -> Optional[Tuple[str, ProjectContract, int, int]]:
+        for owner_address, nft_addresses in sorted(self.nft_balances.items(), key=lambda x: random.random()):
+            for nft_address, tokens in sorted(nft_addresses.items(), key=lambda x: random.random()):
+                for token_id, amount in sorted(tokens.items(), key=lambda x: random.random()):
+                    if amount > 0:
+                        return owner_address, self.erc1155_contracts[nft_address], token_id, amount
+        return None
+
+    def _subtract_nft_amount(self, address: str, nft_contract: ProjectContract, token_id: int, amount: int):
+        self.nft_balances[address][nft_contract.address][token_id] -= amount
+
+    def _add_nft_amount(self, address: str, nft_contract: ProjectContract, token_id: int, amount: int):
+        self.nft_balances[address][nft_contract.address][token_id] += amount
 
     def _init_nft_tokens(self):
         # setup 3 different NFT contracts with 4 tokens per each
         for _ in range(1, 4):
             contract = ERC1155CollectionMock.deploy({'from': self.owner})
-            self.nft_tokens[contract.address] = {}
+            self.erc1155_contracts[contract.address] = contract
             for token_id in range(1, 5):
                 # randomly select nft owner and token amount
-                token_owner = random.choice(self.accounts)
+                token_owner = random.choice(self.available_accounts)
                 token_amount = random.randint(1, 50)
                 contract.mint(token_owner, token_id, token_amount, '')
-                self.nft_tokens[contract.address][token_id] = NFT(contract, token_owner, token_amount)
+                self.nft_balances[token_owner.address][contract.address][token_id] = token_amount
 
     def _init_payment_tokens(self):
         # setup 2 different payment tokens
@@ -63,15 +105,12 @@ class StateMachine:
                 {'from': self.owner}
             )
             self.payment_token_registry.add(contract, {'from': self.owner})
-            self.payment_tokens[contract.address] = contract
+            self.erc20_contracts[contract.address] = contract
 
             # mint tokens for accounts
-            for account in self.accounts:
+            for account in self.available_accounts:
                 contract.mint(account, ACCOUNT_ERC20_AMOUNT)
                 self.balances[account.address][contract.address] = ACCOUNT_ERC20_AMOUNT
-
-    def rule_create_auction(self):
-        assert len(self.accounts) == 9
 
 
 def test_stateful(
@@ -87,5 +126,5 @@ def test_stateful(
         accounts,
         erc1155_marketplace_mock,
         payment_token_registry,
-        settings={'max_examples': 5}
+        settings={'max_examples': 5, 'deadline': 500}
     )
