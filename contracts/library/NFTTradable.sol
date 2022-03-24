@@ -5,6 +5,8 @@ pragma solidity ^0.8.0;
 import "openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "openzeppelin/contracts/interfaces/IERC2981.sol";
+import "../../interfaces/IERC2981Settable.sol";
 
 // @notice User defined type to unify ERC721 and ERC1155
 type NFTAddress is address;
@@ -33,6 +35,26 @@ library NFTTradable {
     }
 
     /**
+     * @notice Check NFT address is ERC2981
+     * @param nft NFT address
+     * @return bool
+     */
+    function isERC2981(NFTAddress nft) internal view returns (bool) {
+        return IERC165(toAddress(nft)).supportsInterface(type(IERC2981).interfaceId);
+    }
+
+    /**
+     * @notice Check NFT address is ERC2981Settable
+     * @param nft NFT address
+     * @return bool
+     */
+    function isERC2981Settable(NFTAddress nft) internal view returns (bool) {
+        return IERC165(toAddress(nft)).supportsInterface(type(IERC2981Settable).interfaceId);
+    }
+
+    // TODO: settable legacy support
+
+    /**
      * @notice Convert NFT address into ERC721 instance
      * @param nft NFT address
      * @return IERC721
@@ -49,6 +71,25 @@ library NFTTradable {
     function toERC1155(NFTAddress nft) internal pure returns (IERC1155) {
         return IERC1155(toAddress(nft));
     }
+
+    /**
+     * @notice Convert NFT address into ERC2981 instance
+     * @param nft NFT address
+     * @return IERC2981
+     */
+    function toERC2981(NFTAddress nft) internal pure returns (IERC2981) {
+        return IERC2981(toAddress(nft));
+    }
+
+    /**
+     * @notice Convert NFT address into ERC2981Settable instance
+     * @param nft NFT address
+     * @return IERC2981Settable
+     */
+    function toERC2981Settable(NFTAddress nft) internal pure returns (IERC2981Settable) {
+        return IERC2981Settable(toAddress(nft));
+    }
+
 
     /**
      * @notice Convert NFT address into underlying address

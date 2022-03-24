@@ -17,7 +17,6 @@ interface IMarketplaceBase {
         bool isMinBidReservePrice;
         uint256 startTime;
         uint256 endTime;
-        bool hasResulted;
     }
 
     struct HighestBid {
@@ -25,6 +24,14 @@ interface IMarketplaceBase {
         uint256 bidAmount;
         uint256 time;
     }
+
+    event AuctionCreated(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed owner,
+        uint256 tokenAmount,
+        address payToken
+    );
 
     /// @notice Structure for listed items
     struct Listing {
@@ -44,6 +51,23 @@ interface IMarketplaceBase {
     }
 
     event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
+
+    event AuctionFinished(
+        address oldOwner,
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed winner,
+        address payToken,
+        uint256 tokenAmount,
+        uint256 winningBid
+    );
+
+    event AuctionReservePriceUpdated(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed owner,
+        uint256 reservePrice
+    );
 
     event BidRefunded(
         address indexed nftAddress,

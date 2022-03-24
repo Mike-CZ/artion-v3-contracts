@@ -11,6 +11,7 @@ import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IMarketplaceBase.sol";
 import "../interfaces/IPaymentTokenRegistry.sol";
+import "../interfaces/IRoyaltyRegistry.sol";
 
 abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     using SafeERC20 for IERC20;
@@ -227,9 +228,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         Auction memory auction,
         HighestBid memory highestBid
     ) internal returns (uint256) {
-        uint256 feeBase = highestBid.bidAmount - auction.reservePrice;
-        if (feeBase > 0) {
-            uint256 fee = feeBase * _auctionFee / 1000;
+        if (highestBid.bidAmount > auction.reservePrice) {
+            uint256 fee = (highestBid.bidAmount - auction.reservePrice) * _auctionFee / 1_000;
             _sendPayTokenAmount(auction.paymentToken, payable(_feeRecipient), fee);
             return fee;
         }
@@ -269,6 +269,28 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+    * @notice Calculate and take royalty fee
+    * @param nft NFT address
+    * @param tokenId Token identifier
+    * @param paymentToken Payment token
+    * @param payAmount Payment amount
+    * @return uint256
+    */
+    function _calculateAndTakeRoyaltyFee(
+        NFTAddress nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 payAmount
+    ) internal returns (uint256) {
+        (address recipient, uint256 royaltyAmount) = _getRoyaltyRegistry().royaltyInfo(nft, tokenId, payAmount);
+        if (recipient != address(0) && royaltyAmount > 0) {
+            _sendPayTokenAmount(paymentToken, recipient, royaltyAmount);
+            return royaltyAmount;
+        }
+        return 0;
+    }
+
+    /**
      * @notice Receive pay token amount
      * @param payToken Address of ERC20
      * @param from Sender address
@@ -284,8 +306,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param to Receiver address
      * @param amount Amount to transfer
      */
-    function _sendPayTokenAmount(address payToken, address payable to, uint256 amount) internal {
-        IERC20(payToken).safeTransfer(to, amount);
+    function _sendPayTokenAmount(address payToken, address to, uint256 amount) internal {
+        IERC20(payToken).safeTransfer(payable(to), amount);
     }
 
     /**
@@ -295,8 +317,8 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param to Receiver address
      * @param amount Amount to transfer
      */
-    function _transferPayTokenAmount(address payToken, address from, address payable to, uint256 amount) internal {
-        IERC20(payToken).safeTransferFrom(from, to, amount);
+    function _transferPayTokenAmount(address payToken, address from, address to, uint256 amount) internal {
+        IERC20(payToken).safeTransferFrom(from, payable(to), amount);
     }
 
     /**
@@ -327,20 +349,21 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate auction has not resulted
-     * @param auction Auction to validate
-     */
-    function _validateAuctionNotResulted(Auction memory auction) internal pure {
-        require(! _auctionResulted(auction), 'MarketplaceBase: auction resulted');
-    }
-
-    /**
      * @notice Validate address is auction owner
      * @param auction Auction to validate
      * @param entrant Address to validate
      */
     function _validateAuctionOwner(Auction memory auction, address entrant) internal pure {
         require(auction.owner == entrant, 'MarketplaceBase: not owner');
+    }
+
+    /**
+     * @notice Validate auction reserve price update
+     * @param auction Auction to validate
+     * @param reservePrice Reserve price to validate
+     */
+    function _validateAuctionReservePriceUpdate(Auction memory auction, uint256 reservePrice) internal pure {
+        require(auction.reservePrice > reservePrice, 'MarketplaceBase: reserve price can only decrease');
     }
 
     /**
@@ -376,7 +399,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     function _validateAuctionHighestBidIsWithdrawable(
         Auction memory auction,
         HighestBid memory highestBid
-    ) internal view {
+    ) internal {
         // must wait when bid is above or equal reserve price
         if (_auctionHighestBidAboveOrEqualReservePrice(auction, highestBid)) {
             require(
@@ -388,6 +411,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
 
     /**
      * @notice Validate highest bid exists
+     * @param highestBid Highest bid to validate
      */
     function _validateHighestBidExists(HighestBid memory highestBid) internal pure {
         require(_highestBidExists(highestBid), 'MarketplaceBase: highest bid not exist');
@@ -424,14 +448,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate auction has resulted
-     * @param auction Auction to validate
-     */
-    function _validateAuctionResulted(Auction memory auction) internal pure {
-        require(_auctionResulted(auction), 'MarketplaceBase: auction not resulted');
-    }
-
-    /**
      * @notice Validate auction exists
      * @param auction Auction to validate
      */
@@ -451,7 +467,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has started
      * @param auction Auction to validate
      */
-    function _validateAuctionStarted(Auction memory auction) internal view {
+    function _validateAuctionStarted(Auction memory auction) internal {
         require(_auctionStarted(auction), 'MarketplaceBase: auction not started');
     }
 
@@ -459,7 +475,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has not started
      * @param auction Auction to validate
      */
-    function _validateAuctionNotStarted(Auction memory auction) internal view {
+    function _validateAuctionNotStarted(Auction memory auction) internal {
         require(! _auctionStarted(auction), 'MarketplaceBase: auction started');
     }
 
@@ -467,7 +483,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has ended
      * @param auction Auction to validate
      */
-    function _validateAuctionEnded(Auction memory auction) internal view {
+    function _validateAuctionEnded(Auction memory auction) internal {
         require(_auctionEnded(auction), 'MarketplaceBase: auction not ended');
     }
 
@@ -475,7 +491,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate auction has not ended
      * @param auction Auction to validate
      */
-    function _validateAuctionNotEnded(Auction memory auction) internal view {
+    function _validateAuctionNotEnded(Auction memory auction) internal {
         require(! _auctionEnded(auction), 'MarketplaceBase: auction ended');
     }
 
@@ -513,7 +529,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @notice Validate new listing time
      * @param startTime Start time as unix time
      */
-    function _validateNewListingTime(uint256 startTime) internal view {
+    function _validateNewListingTime(uint256 startTime) internal {
         require(startTime >= _getNow(), 'MarketplaceBase: invalid start time');
     }
 
@@ -600,20 +616,19 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Check auction has resulted
-     * @param auction Auction to check
-     * @return bool
-     */
-    function _auctionResulted(Auction memory auction) internal pure returns (bool) {
-        return auction.hasResulted;
-    }
-
-    /**
      * @notice Get payment token registry contract
      * @return IPaymentTokenRegistry
      */
-    function _getPaymentTokenRegistry() internal view returns (IPaymentTokenRegistry) {
+    function _getPaymentTokenRegistry() internal returns (IPaymentTokenRegistry) {
         return IPaymentTokenRegistry(_addressRegistry.getPaymentTokenRegistryAddress());
+    }
+
+    /**
+     * @notice Get royalty registry contract
+     * @return IRoyaltyRegistry
+     */
+    function _getRoyaltyRegistry() internal returns (IRoyaltyRegistry) {
+        return IRoyaltyRegistry(_addressRegistry.getRoyaltyRegistryAddress());
     }
 
     /**

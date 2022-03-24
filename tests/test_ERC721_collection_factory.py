@@ -1,5 +1,6 @@
 from brownie import Wei, accounts, reverts, ERC721Collection
 
+
 class TestCreateERC721Collection:
     create_collection_fee = Wei("5 ether")  # fee recipient is accounts[0]
 
