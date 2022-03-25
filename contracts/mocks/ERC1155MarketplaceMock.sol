@@ -14,6 +14,7 @@ contract ERC1155MarketplaceMock is ERC1155Marketplace {
         NFTAddress nft,
         uint256 tokenId,
         uint256 amount,
+        uint256 auctionId,
         address owner,
         address paymentToken,
         uint256 reservePrice,
@@ -22,7 +23,7 @@ contract ERC1155MarketplaceMock is ERC1155Marketplace {
         bool isMinBidReservePrice
     ) public {
         _createAuctionAndTransferToken(
-            nft, tokenId, amount, owner, paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
+            nft, tokenId, amount, auctionId, owner, paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
         );
     }
 }

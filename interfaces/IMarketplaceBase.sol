@@ -32,6 +32,14 @@ interface IMarketplaceBase {
         uint256 startingTime;
     }
 
+    event AuctionCreated(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed owner,
+        uint256 tokenAmount,
+        address payToken
+    );
+
     event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
 
     event AuctionFinished(
