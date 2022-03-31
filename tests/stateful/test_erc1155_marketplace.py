@@ -7,7 +7,10 @@ from typing import Callable, List, Dict, DefaultDict, Optional, Tuple
 from dataclasses import dataclass
 from collections import defaultdict
 import utils
+from utils.helpers import calculate_auction_fee
+import time
 import random
+import copy
 
 ACCOUNT_ERC20_AMOUNT = 1_000_000
 
@@ -53,6 +56,7 @@ class StateMachine:
         self.available_accounts: List[LocalAccount] = list(filter(lambda x: x.address != owner.address, accounts))
         self.fee_recipient: LocalAccount = random.choice(self.available_accounts)
 
+        random.seed(time.time())
         self.latestAuctionId = 1
 
         # dicts of deployed payment tokens and nf tokens
@@ -69,13 +73,13 @@ class StateMachine:
 
         StateMachine._init_payment_tokens(self)
         StateMachine._init_nft_tokens(self)
-        self.initial_balances = self.balances.copy()
-        self.initial_nft_balances = self.nft_balances.copy()
+        self.initial_balances = copy.deepcopy(self.balances)
+        self.initial_nft_balances = copy.deepcopy(self.nft_balances)
+        self.marketplace.updateFeeRecipient(self.fee_recipient, {'from': self.owner})
 
-    def teardown(self):
-        self.latestAuctionId = 1
-        self.balances = self.initial_balances.copy()
-        self.nft_balances = self.initial_nft_balances.copy()
+    def setup(self):
+        self.balances = copy.deepcopy(self.initial_balances)
+        self.nft_balances = copy.deepcopy(self.initial_nft_balances)
         self.auctions.clear()
         self.bids.clear()
 
@@ -142,12 +146,17 @@ class StateMachine:
             filter(lambda x: x.address != auction.owner, sorted(self.available_accounts, key=lambda k: random.random()))
         )
 
+        erc20 = self.erc20_contracts[auction.pay_token]
+
         if auction.auction_id in self.bids:
-            min_bid_amount = self.bids[auction.auction_id].bid_amount + random.randint(1, 20)
+            highest_bid = self.bids[auction.auction_id]
+            min_bid_amount = highest_bid.bid_amount + random.randint(1, 20)
+            # refund previous highest bid
+            self._add_pay_token_amount(highest_bid.bidder, erc20, highest_bid.bid_amount)
+            self._subtract_pay_token_amount(self.marketplace.address, erc20, highest_bid.bid_amount)
         else:
             min_bid_amount = auction.reserve_price if auction.is_min_bid_reserve else + random.randint(1, 20)
 
-        erc20 = self.erc20_contracts[auction.pay_token]
         bid_amount = random.randint(min_bid_amount, min_bid_amount + 10)
 
         erc20.approveInternal(bidder, self.marketplace, bid_amount)
@@ -202,14 +211,22 @@ class StateMachine:
                 {'from': bid.bidder if random.randint(0, 1) == 1 else auction.owner}
             )
 
+        fee = calculate_auction_fee(bid.bid_amount, auction.reserve_price, self.marketplace.getAuctionFee())
+
         erc20 = self.erc20_contracts[auction.pay_token]
         self._subtract_pay_token_amount(self.marketplace.address, erc20, bid.bid_amount)
-        self._add_pay_token_amount(auction.owner, erc20, bid.bid_amount)
+        self._add_pay_token_amount(auction.owner, erc20, bid.bid_amount - fee)
+        self._add_pay_token_amount(self.fee_recipient.address, erc20, fee)
         self._subtract_nft_amount(self.marketplace.address, nft_contract, auction.token_id, auction.token_amount)
-        self._add_nft_amount(bid.bidder, nft_contract, token_id, auction.token_amount)
+        self._add_nft_amount(bid.bidder, nft_contract, auction.token_id, auction.token_amount)
 
         self._delete_auction(auction)
         self.bids.pop(auction.auction_id)
+
+    def invariant_payment_tokens(self):
+        for owner_address, token_addresses in self.balances.items():
+            for token_address, balance in token_addresses.items():
+                assert balance == self.erc20_contracts[token_address].balanceOf(owner_address)
 
     def invariant_nft_tokens(self):
         for owner_address, nft_addresses in self.nft_balances.items():
@@ -299,5 +316,5 @@ def test_stateful(
         accounts,
         erc1155_marketplace_mock,
         payment_token_registry,
-        settings={'max_examples': 50, 'deadline': 500}
+        settings={'max_examples': 50}
     )
