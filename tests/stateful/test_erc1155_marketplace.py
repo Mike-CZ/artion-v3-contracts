@@ -48,7 +48,7 @@ class StateMachine:
             accounts: Accounts,
             erc1155_marketplace_mock: ProjectContract,
             payment_token_registry: ProjectContract
-    ):
+    ) -> None:
         self.owner = owner
         self.marketplace = erc1155_marketplace_mock
         self.payment_token_registry = payment_token_registry
@@ -77,13 +77,13 @@ class StateMachine:
         self.initial_nft_balances = copy.deepcopy(self.nft_balances)
         self.marketplace.updateFeeRecipient(self.fee_recipient, {'from': self.owner})
 
-    def setup(self):
+    def setup(self) -> None:
         self.balances = copy.deepcopy(self.initial_balances)
         self.nft_balances = copy.deepcopy(self.initial_nft_balances)
         self.auctions.clear()
         self.bids.clear()
 
-    def rule_create_auction(self):
+    def rule_create_auction(self) -> None:
         data = self._get_owner_with_nft()
         if data is None or data[0] == self.marketplace.address:
             return
@@ -130,7 +130,7 @@ class StateMachine:
 
         self.latestAuctionId += 1
 
-    def rule_bid(self):
+    def rule_bid(self) -> None:
         auction = self._get_biddable_auction()
         if auction is None:
             # try to create auction
@@ -177,7 +177,7 @@ class StateMachine:
         self._add_pay_token_amount(self.marketplace.address, erc20, bid_amount)
         self.bids[auction.auction_id] = HighestBid(bidder.address, bid_amount)
 
-    def rule_finish_auction(self):
+    def rule_finish_auction(self) -> None:
         auction = self._get_finishable_auction()
         if auction is None:
             # try to bind on auction
@@ -223,12 +223,54 @@ class StateMachine:
         self._delete_auction(auction)
         self.bids.pop(auction.auction_id)
 
-    def invariant_payment_tokens(self):
+    def rule_cancel_auction(self) -> None:
+        auction = self._get_cancelable_auction()
+        if auction is None:
+            # try to create auction
+            self.rule_create_auction()
+
+        # check created successfully
+        auction = self._get_cancelable_auction()
+        if auction is None:
+            return
+
+        nft_contract = self.erc1155_contracts[auction.nft]
+
+        self.marketplace.cancelAuction(
+            nft_contract, auction.token_id, auction.auction_id, {'from': auction.owner}
+        )
+
+        self._subtract_nft_amount(self.marketplace.address, nft_contract, auction.token_id, auction.token_amount)
+        self._add_nft_amount(auction.owner, nft_contract, auction.token_id, auction.token_amount)
+        self._delete_auction(auction)
+
+        # refund highest bid
+        if auction.auction_id in self.bids:
+            erc20 = self.erc20_contracts[auction.pay_token]
+            highest_bid = self.bids[auction.auction_id]
+            self._add_pay_token_amount(highest_bid.bidder, erc20, highest_bid.bid_amount)
+            self._subtract_pay_token_amount(self.marketplace.address, erc20, highest_bid.bid_amount)
+            self.bids.pop(auction.auction_id)
+
+    def rule_withdraw_bid(self) -> None:
+        auction = self._get_withdrawable_auction()
+        if auction is None:
+            # try to create auction
+            self.rule_bid()
+
+        # check created successfully
+        auction = self._get_withdrawable_auction()
+        if auction is None:
+            return
+
+        assert auction == 1
+
+    def insvariant_payment_tokens(self) -> None:
         for owner_address, token_addresses in self.balances.items():
             for token_address, balance in token_addresses.items():
                 assert balance == self.erc20_contracts[token_address].balanceOf(owner_address)
 
-    def invariant_nft_tokens(self):
+    def insvariant_nft_tokens(self) -> None:
         for owner_address, nft_addresses in self.nft_balances.items():
             for nft_address, tokens in nft_addresses.items():
                 for token_id, amount in tokens.items():
@@ -241,6 +283,24 @@ class StateMachine:
                     if amount > 0:
                         return owner_address, self.erc1155_contracts[nft_address], token_id, amount
         return None
+
+    def _get_withdrawable_auction(self) -> Optional[Auction]:
+        found_auction = None
+        for auction in sorted(self.auctions, key=lambda x: random.random()):
+            if (found_auction is None or auction.end_time < found_auction.end_time) \
+                    and auction.auction_id in self.bids \
+                    and self.bids[auction.auction_id].bid_amount < auction.reserve_price:
+                found_auction = auction
+        return found_auction
+
+    def _get_cancelable_auction(self) -> Optional[Auction]:
+        found_auction = None
+        for auction in sorted(self.auctions, key=lambda x: random.random()):
+            if (found_auction is None or auction.end_time < found_auction.end_time) \
+                    and (auction.auction_id not in self.bids
+                         or self.bids[auction.auction_id].bid_amount < auction.reserve_price):
+                found_auction = auction
+        return found_auction
 
     def _get_finishable_auction(self) -> Optional[Auction]:
         found_auction = None
@@ -260,19 +320,19 @@ class StateMachine:
     def _delete_auction(self, auction: Auction) -> None:
         self.auctions = list(filter(lambda x: x.auction_id != auction.auction_id, self.auctions))
 
-    def _subtract_pay_token_amount(self, address: str, erc20_contract: ProjectContract, amount: int):
+    def _subtract_pay_token_amount(self, address: str, erc20_contract: ProjectContract, amount: int) -> None:
         self.balances[address][erc20_contract.address] -= amount
 
-    def _add_pay_token_amount(self, address: str, erc20_contract: ProjectContract, amount: int):
+    def _add_pay_token_amount(self, address: str, erc20_contract: ProjectContract, amount: int) -> None:
         self.balances[address][erc20_contract.address] += amount
 
-    def _subtract_nft_amount(self, address: str, nft_contract: ProjectContract, token_id: int, amount: int):
+    def _subtract_nft_amount(self, address: str, nft_contract: ProjectContract, token_id: int, amount: int) -> None:
         self.nft_balances[address][nft_contract.address][token_id] -= amount
 
-    def _add_nft_amount(self, address: str, nft_contract: ProjectContract, token_id: int, amount: int):
+    def _add_nft_amount(self, address: str, nft_contract: ProjectContract, token_id: int, amount: int) -> None:
         self.nft_balances[address][nft_contract.address][token_id] += amount
 
-    def _init_nft_tokens(self):
+    def _init_nft_tokens(self) -> None:
         # setup 3 different NFT contracts with 4 tokens per each
         for _ in range(1, 4):
             contract = ERC1155CollectionMock.deploy({'from': self.owner})
@@ -284,7 +344,7 @@ class StateMachine:
                 contract.mint(token_owner, token_id, token_amount, '')
                 self.nft_balances[token_owner.address][contract.address][token_id] = token_amount
 
-    def _init_payment_tokens(self):
+    def _init_payment_tokens(self) -> None:
         # setup 2 different payment tokens
         for x in range(1, 3):
             contract = ERC20TokenMock.deploy(
@@ -309,7 +369,7 @@ def test_stateful(
         accounts: Accounts,
         erc1155_marketplace_mock: ProjectContract,
         payment_token_registry: ProjectContract
-):
+) -> None:
     state_machine(
         StateMachine,
         owner,
