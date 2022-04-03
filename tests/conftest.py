@@ -46,6 +46,11 @@ def erc20_mock(owner, user, user_2, user_3):
 
 
 @pytest.fixture(scope="module")
+def payment_token(erc20_mock):
+    return erc20_mock
+
+
+@pytest.fixture(scope="module")
 def payment_token_registry(owner, erc20_mock):
     contract = PaymentTokenRegistry.deploy({'from': owner})
     contract.add(utils.constants.TOMB_TOKEN)

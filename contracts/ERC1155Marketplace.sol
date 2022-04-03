@@ -14,10 +14,27 @@ import "../interfaces/IERC1155Marketplace.sol";
 contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketplace {
     using NFTTradable for NFTAddress;
 
+    struct ERC1155Auction {
+        Auction auction;
+        uint256 tokenAmount;
+    }
+
+    struct ERC1155Listing {
+        Listing listing;
+        uint256 totalTokenAmount;
+        uint256 buyTokenAmount;
+        uint256 remainingTokenAmount;
+    }
+
     /**
     * @notice ERC1155 address => token id => owner => auction id => auction
     */
     mapping(address => mapping(uint256 => mapping(address => mapping(uint256 => ERC1155Auction)))) internal _auctions;
+
+    /**
+    * @notice ERC1155 address => token id => owner => listing id => listing
+    */
+    mapping(address => mapping(uint256 => mapping(address => mapping(uint256 => ERC1155Listing)))) internal _listings;
 
     /**
     * @notice ERC1155 address => token id => owner => auction id => bid
@@ -44,6 +61,23 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Get listing for given token and owner
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @param listingId Listing identifier
+     * @return ERC1155Auction
+     */
+    function getListing(
+        NFTAddress nft,
+        uint256 tokenId,
+        address owner,
+        uint256 listingId
+    ) public view returns (ERC1155Listing memory) {
+        return _listings[nft.toAddress()][tokenId][owner][listingId];
+    }
+
+    /**
      * @notice Check given token and owner have any auction
      * @param nft NFT address
      * @param tokenId Token identifier
@@ -53,6 +87,18 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      */
     function hasAuction(NFTAddress nft, uint256 tokenId, address owner, uint256 auctionId) public view returns (bool) {
         return _auctionExists(getAuction(nft, tokenId, owner, auctionId).auction);
+    }
+
+    /**
+     * @notice Check given token and owner have any listing
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Auction owner
+     * @param listingId Listing identifier
+     * @return bool
+     */
+    function hasListing(NFTAddress nft, uint256 tokenId, address owner, uint256 listingId) public view returns (bool) {
+        return _listingExists(getListing(nft, tokenId, owner, listingId).listing);
     }
 
     /**
@@ -112,7 +158,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
         uint256 endTime,
         bool isMinBidReservePrice
     ) public {
-        _validateNewAuctionNFT(nft, tokenId, amount);
+        _validateERC1155AndTokens(nft, tokenId, amount, _msgSender());
 
         _validatePaymentTokenIsEnabled(paymentToken);
 
@@ -305,6 +351,176 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Method for listing an NFT
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param paymentToken Payment token that will be used for listing
+     * @param tokenAmount Amount of tokens to list
+     * @param buyTokenAmount Minimum amount of tokens available to buy
+     * @param buyAmountPrice Price of minimum amount of tokens to buy
+     * @param listingId Listing identifier
+     * @param startingTime Listing start time
+     */
+    function createListing(
+        NFTAddress nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 tokenAmount,
+        uint256 buyTokenAmount,
+        uint256 buyAmountPrice,
+        uint256 listingId,
+        uint256 startingTime
+    ) public {
+        _validateERC1155AndTokens(nft, tokenId, tokenAmount, _msgSender());
+
+        _validateNewListingTime(startingTime);
+        _validatePaymentTokenIsEnabled(paymentToken);
+
+        // TODO: Validate amounts
+
+        _createListingAndTransferToken(
+            nft,
+            tokenId,
+            _msgSender(),
+            paymentToken,
+            tokenAmount,
+            buyTokenAmount,
+            buyAmountPrice,
+            listingId,
+            startingTime
+        );
+
+        emit ERC1155ListingCreated(
+            _msgSender(),
+            nft.toAddress(),
+            tokenId,
+            tokenAmount,
+            buyTokenAmount,
+            buyAmountPrice,
+            listingId,
+            paymentToken,
+            startingTime
+        );
+    }
+
+    /**
+     * @notice Method for updating listed NFT
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param listingId Listing identifier
+     * @param paymentToken Payment token that will be used for listing
+     * @param newBuyAmountPrice New listing price
+     */
+    function updateListing(
+        NFTAddress nft,
+        uint256 tokenId,
+        uint256 listingId,
+        address paymentToken,
+        uint256 newBuyAmountPrice
+    ) public {
+        _validateListingExists(getListing(nft, tokenId, _msgSender(), listingId).listing);
+
+        _validatePaymentTokenIsEnabled(paymentToken);
+
+        ERC1155Listing storage erc1155Listing = _listings[nft.toAddress()][tokenId][_msgSender()][listingId];
+        erc1155Listing.listing.paymentToken = paymentToken;
+        erc1155Listing.listing.price = newBuyAmountPrice;
+
+        emit ERC1155ListingUpdated(
+            _msgSender(),
+            nft.toAddress(),
+            tokenId,
+            listingId,
+            paymentToken,
+            newBuyAmountPrice
+        );
+    }
+
+    /**
+     * @notice Method for canceling listed NFT
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param listingId Listing identifier
+     */
+    function cancelListing(NFTAddress nft, uint256 tokenId, uint256 listingId) public {
+        ERC1155Listing memory erc1155Listing = getListing(nft, tokenId, _msgSender(), listingId);
+
+        _validateListingExists(erc1155Listing.listing);
+
+        _deleteListingAndTransferToken(nft, tokenId, listingId, _msgSender(), erc1155Listing);
+
+        emit ERC1155ListingCanceled(_msgSender(), nft.toAddress(), tokenId, listingId);
+    }
+
+    /**
+     * @notice Method for buying listed NFT
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Listing owner
+     * @param listingId Listing identifier
+     * @param paymentToken Payment token that will be used
+     * @param buyAmount Amount of tokens to buy
+     */
+    function buyListedItem(
+        NFTAddress nft,
+        uint256 tokenId,
+        address owner,
+        uint256 listingId,
+        address paymentToken,
+        uint256 buyAmount
+    ) public {
+        ERC1155Listing memory erc1155Listing = getListing(nft, tokenId, owner, listingId);
+
+        _validateListingExists(erc1155Listing.listing);
+
+        _validateListingStarted(erc1155Listing.listing);
+
+        _validatePaymentTokenIsEnabled(paymentToken);
+
+        require(
+            buyAmount > 0
+            && buyAmount <= erc1155Listing.remainingTokenAmount
+            && buyAmount % erc1155Listing.buyTokenAmount == 0,
+            'ERC1155Marketplace: invalid buy amount'
+        );
+
+        // calculate price as required amount divided by minimal purchasable amount multiplied by purchasable
+        // amount price
+        uint256 basePrice = buyAmount / erc1155Listing.buyTokenAmount * erc1155Listing.listing.price;
+
+        // TODO: take amount into account
+        uint256 finalAmount = basePrice - _calculateAndTakeListingFee(erc1155Listing.listing);
+
+        // TODO: Take from sender
+        finalAmount -= _calculateAndTakeRoyaltyFee(nft, tokenId, erc1155Listing.listing.paymentToken, finalAmount);
+
+        _transferPayTokenAmount(erc1155Listing.listing.paymentToken, _msgSender(), owner, finalAmount);
+
+        nft.toERC1155().safeTransferFrom(address(this), _msgSender(), tokenId, buyAmount, new bytes(0));
+
+        uint256 remainingTokenAmount = erc1155Listing.remainingTokenAmount - buyAmount;
+
+        if (remainingTokenAmount > 0) {
+            _listings[nft.toAddress()][tokenId][_msgSender()][listingId].remainingTokenAmount = remainingTokenAmount;
+        } else {
+            _deleteListing(nft, tokenId, owner, listingId);
+        }
+
+        emit ERC1155ListedItemSold(
+            owner,
+            _msgSender(),
+            nft.toAddress(),
+            tokenId,
+            buyAmount,
+            remainingTokenAmount,
+            basePrice,
+            paymentToken
+        );
+    }
+
+
+
+    /**
      * @notice Successfully finish an auction
      * @param nft NFT address
      * @param tokenId Token identifier
@@ -322,14 +538,8 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
         _deleteAuction(nft, tokenId, erc1155Auction.auction.owner, auctionId);
         _deleteHighestBid(nft, tokenId, erc1155Auction.auction.owner, auctionId);
 
-        uint256 fee = _calculateAndTakeAuctionFee(erc1155Auction.auction, highestBid);
-        uint256 finalAmount = highestBid.bidAmount - fee;
-
-        uint256 royaltyFee = _calculateAndTakeRoyaltyFee(
-            nft, tokenId, erc1155Auction.auction.paymentToken, finalAmount
-        );
-
-        finalAmount -= royaltyFee;
+        uint256 finalAmount = highestBid.bidAmount - _calculateAndTakeAuctionFee(erc1155Auction.auction, highestBid);
+        finalAmount -= _calculateAndTakeRoyaltyFee(nft, tokenId, erc1155Auction.auction.paymentToken, finalAmount);
 
         if (finalAmount > 0) {
             _sendPayTokenAmount(erc1155Auction.auction.paymentToken, erc1155Auction.auction.owner, finalAmount);
@@ -420,6 +630,45 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Create new listing and transfer token
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Token owner
+     * @param paymentToken Payment token that will be used for listing
+     * @param tokenAmount Amount of tokens to list
+     * @param buyTokenAmount Minimum amount of tokens available to buy
+     * @param buyAmountPrice Price of minimum amount of tokens to buy
+     * @param listingId Listing identifier
+     * @param startingTime Listing start time
+     */
+    function _createListingAndTransferToken(
+        NFTAddress nft,
+        uint256 tokenId,
+        address owner,
+        address paymentToken,
+        uint256 tokenAmount,
+        uint256 buyTokenAmount,
+        uint256 buyAmountPrice,
+        uint256 listingId,
+        uint256 startingTime
+    ) internal {
+        _listings[nft.toAddress()][tokenId][owner][listingId] = ERC1155Listing({
+            listing: Listing({
+                owner: owner,
+                paymentToken: paymentToken,
+                price: buyAmountPrice,
+                startingTime: startingTime
+            }),
+            totalTokenAmount: tokenAmount,
+            buyTokenAmount: buyTokenAmount,
+            remainingTokenAmount: tokenAmount
+        });
+
+        // transfer token to be held in escrow
+        nft.toERC1155().safeTransferFrom(owner, address(this), tokenId, tokenAmount, new bytes(0));
+    }
+
+    /**
      * @notice Delete auction and transfer token
      * @param nft NFT address
      * @param tokenId Token identifier
@@ -441,6 +690,29 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
     }
 
     /**
+     * @notice Delete listing and transfer remaining token amount
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param listingId Listing identifier
+     * @param owner Listing owner
+     * @param erc1155Listing Listing to delete
+     */
+    function _deleteListingAndTransferToken(
+        NFTAddress nft,
+        uint256 tokenId,
+        uint256 listingId,
+        address owner,
+        ERC1155Listing memory erc1155Listing
+    ) internal {
+        _deleteListing(nft, tokenId, owner, listingId);
+
+        // transfer token back to owner
+        nft.toERC1155().safeTransferFrom(
+            address(this), owner, tokenId, erc1155Listing.remainingTokenAmount, new bytes(0)
+        );
+    }
+
+    /**
      * @notice Delete auction
      * @param nft NFT address
      * @param tokenId Token identifier
@@ -449,6 +721,17 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      */
     function _deleteAuction(NFTAddress nft, uint256 tokenId, address owner, uint256 auctionId) internal {
         delete _auctions[nft.toAddress()][tokenId][owner][auctionId];
+    }
+
+    /**
+     * @notice Delete listing
+     * @param nft NFT address
+     * @param tokenId Token identifier
+     * @param owner Listing owner
+     * @param listingId Listing identifier
+     */
+    function _deleteListing(NFTAddress nft, uint256 tokenId, address owner, uint256 listingId) internal {
+        delete _listings[nft.toAddress()][tokenId][owner][listingId];
     }
 
     /**
@@ -493,15 +776,16 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      * @param nft NFT instance
      * @param tokenId Token identifier
      * @param amount Token amount
+     * @param owner Tokens owner
      */
-    function _validateNewAuctionNFT(NFTAddress nft, uint256 tokenId, uint256 amount) internal {
+    function _validateERC1155AndTokens(NFTAddress nft, uint256 tokenId, uint256 amount, address owner) internal {
         require(nft.isERC1155(), 'ERC1155Marketplace: NFT not ERC1155');
         require(
-            nft.toERC1155().balanceOf(_msgSender(), tokenId) >= amount,
+            nft.toERC1155().balanceOf(owner, tokenId) >= amount,
             'ERC1155Marketplace: balance too low'
         );
         require(
-            nft.toERC1155().isApprovedForAll(_msgSender(), address(this)),
+            nft.toERC1155().isApprovedForAll(owner, address(this)),
             'ERC1155Marketplace: not approved'
         );
     }

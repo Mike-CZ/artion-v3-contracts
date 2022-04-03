@@ -17,7 +17,7 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
     using NFTTradable for NFTAddress;
 
     /// @notice NftAddress -> Token ID -> Listed item
-    mapping(address => mapping(uint256 => Listing)) private _listings;
+    mapping(address => mapping(uint256 => Listing)) internal _listings;
 
     modifier isListed(address nftAddress, uint256 tokenId) {
         Listing memory listing = _listings[nftAddress][tokenId];
@@ -174,7 +174,7 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
 
     function _buyListedItem(NFTAddress nftAddress, uint256 tokenId) private {
         Listing memory listedItem = _listings[nftAddress.toAddress()][tokenId];
-        address payable owner = listedItem.owner;
+        address owner = listedItem.owner;
         address paymentToken = listedItem.paymentToken;
         uint256 price = listedItem.price;
 

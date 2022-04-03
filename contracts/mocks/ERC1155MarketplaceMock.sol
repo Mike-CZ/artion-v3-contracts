@@ -26,4 +26,20 @@ contract ERC1155MarketplaceMock is ERC1155Marketplace {
             nft, tokenId, amount, auctionId, owner, paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
         );
     }
+
+    function createListingAndTransferToken(
+        NFTAddress nft,
+        uint256 tokenId,
+        address owner,
+        address paymentToken,
+        uint256 tokenAmount,
+        uint256 buyTokenAmount,
+        uint256 buyAmountPrice,
+        uint256 listingId,
+        uint256 startingTime
+    ) public {
+        _createListingAndTransferToken(
+            nft, tokenId, owner, paymentToken, tokenAmount, buyTokenAmount, buyAmountPrice, listingId, startingTime
+        );
+    }
 }

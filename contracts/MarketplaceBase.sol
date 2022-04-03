@@ -16,6 +16,28 @@ import "../interfaces/IRoyaltyRegistry.sol";
 abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     using SafeERC20 for IERC20;
 
+    struct Auction {
+        address owner;
+        address paymentToken;
+        uint256 reservePrice;
+        bool isMinBidReservePrice;
+        uint256 startTime;
+        uint256 endTime;
+    }
+
+    struct HighestBid {
+        address bidder;
+        uint256 bidAmount;
+        uint256 time;
+    }
+
+    struct Listing {
+        address owner;
+        address paymentToken;
+        uint256 price;
+        uint256 startingTime;
+    }
+
     /**
     * @notice maximum duration of an auction
     */
@@ -399,6 +421,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Validate listing exists
+     * @param listing Listing to validate
+     */
+    function _validateListingExists(Listing memory listing) internal pure {
+        require(_listingExists(listing), 'MarketplaceBase: listing not exist');
+    }
+
+    /**
      * @notice Validate auction has started
      * @param auction Auction to validate
      */
@@ -407,11 +437,27 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Validate listing has started
+     * @param listing Listing to validate
+     */
+    function _validateListingStarted(Listing memory listing) internal {
+        require(_listingStarted(listing), 'MarketplaceBase: listing not started');
+    }
+
+    /**
      * @notice Validate auction has not started
      * @param auction Auction to validate
      */
     function _validateAuctionNotStarted(Auction memory auction) internal {
         require(! _auctionStarted(auction), 'MarketplaceBase: auction started');
+    }
+
+    /**
+     * @notice Validate listing has not started
+     * @param listing Listing to validate
+     */
+    function _validateListingNotStarted(Listing memory listing) internal {
+        require(! _listingStarted(listing), 'MarketplaceBase: listing started');
     }
 
     /**
@@ -490,6 +536,15 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Check listing exists
+     * @param listing Listing to check
+     * @return bool
+     */
+    function _listingExists(Listing memory listing) internal pure returns (bool) {
+        return listing.startingTime > 0;
+    }
+
+    /**
      * @notice Check highest bid exists
      * @param highestBid Bid to check
      * @return bool
@@ -505,6 +560,15 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _auctionStarted(Auction memory auction) internal view returns (bool) {
         return auction.startTime <= _getNow();
+    }
+
+    /**
+     * @notice Check listing has started
+     * @param listing Listing to check
+     * @return bool
+     */
+    function _listingStarted(Listing memory listing) internal view returns (bool) {
+        return listing.startingTime <= _getNow();
     }
 
     /**
