@@ -113,7 +113,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         _validatePaymentTokenIsEnabled(paymentToken);
 
         Listing storage listedItem = _listings[nftAddress.toAddress()][tokenId];
-        _validateOwnership(listedItem.nftOwner);
+        _validateOwnership(listedItem.owner);
 
         listedItem.paymentToken = paymentToken;
         listedItem.price = newPrice;
@@ -134,7 +134,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         NFTAddress nftAddress,
         uint256 tokenId
     ) external nonReentrant isListed(nftAddress.toAddress(), tokenId) {
-        address listingOwner = _listings[nftAddress.toAddress()][tokenId].nftOwner;
+        address listingOwner = _listings[nftAddress.toAddress()][tokenId].owner;
         _validateOwnership(listingOwner);
 
         // transfer token from escrow back to original owner
@@ -433,7 +433,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
 
     function _buyListedItem(NFTAddress nftAddress, uint256 tokenId) internal {
         Listing memory listedItem = _listings[nftAddress.toAddress()][tokenId];
-        address payable owner = listedItem.nftOwner;
+        address payable owner = payable(listedItem.owner);
         address paymentToken = listedItem.paymentToken;
         uint256 price = listedItem.price;
 

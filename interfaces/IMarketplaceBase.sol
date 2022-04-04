@@ -17,23 +17,6 @@ interface IMarketplaceBase {
         address payToken
     );
 
-    /// @notice Structure for listed items
-    struct Listing {
-        address payable nftOwner;
-        address paymentToken;
-        uint256 price;
-        uint256 startingTime;
-    }
-
-    /// @notice Structure for offer
-    struct Offer {
-        address paymentToken;
-        address offeror;
-        uint256 price;
-        uint256 expirationTime;
-        bool paymentTokensInEscrow;
-    }
-
     event AuctionCancelled(address indexed nftAddress, address indexed nftOwner, uint256 indexed tokenId);
 
     event AuctionFinished(

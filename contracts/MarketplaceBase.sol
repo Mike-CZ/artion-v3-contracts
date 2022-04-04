@@ -38,6 +38,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         uint256 startingTime;
     }
 
+    struct Offer {
+        address paymentToken;
+        address offeror;
+        uint256 price;
+        uint256 expirationTime;
+        bool paymentTokensInEscrow;
+    }
+
     /**
     * @notice maximum duration of an auction
     */
