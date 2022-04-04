@@ -193,7 +193,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param highestBid Bid to refund
      */
     function _refundHighestBid(Auction memory auction, HighestBid memory highestBid) internal {
-        _sendPayTokenAmount(auction.paymentToken, payable(highestBid.bidder), highestBid.bidAmount);
+        _sendPayTokenAmount(auction.paymentToken, highestBid.bidder, highestBid.bidAmount);
     }
 
     /**
@@ -208,20 +208,26 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     ) internal returns (uint256) {
         if (highestBid.bidAmount > auction.reservePrice) {
             uint256 fee = (highestBid.bidAmount - auction.reservePrice) * _auctionFee / 1_000;
-            _sendPayTokenAmount(auction.paymentToken, payable(_feeRecipient), fee);
+            _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
             return fee;
         }
         return 0;
     }
 
     /**
-    * @notice Calculate and take listing fee
-    * @param listing Listing to calculate fee from
+    * @notice Calculate and take listing fee from address
+    * @param price Listing price
+    * @param paymentToken Payment token used to take fee from
+    * @param from Take fee from
     * @return uint256 - taken fee
     */
-    function _calculateAndTakeListingFee(Listing memory listing) internal returns (uint256) {
-        uint256 fee = listing.price * _listingFee / 1000;
-        _transferPayTokenAmount(listing.paymentToken, _msgSender(), payable(_feeRecipient), fee);
+    function _calculateAndTakeListingFeeFrom(
+        uint256 price,
+        address paymentToken,
+        address from
+    ) internal returns (uint256) {
+        uint256 fee = price * _listingFee / 1_000;
+        _transferPayTokenAmount(paymentToken, from, _feeRecipient, fee);
         return fee;
     }
 
@@ -248,6 +254,30 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+    * @notice Calculate and take royalty fee from address
+    * @param nft NFT address
+    * @param tokenId Token identifier
+    * @param paymentToken Payment token
+    * @param payAmount Payment amount
+    * @param from Take royalty from address
+    * @return uint256
+    */
+    function _calculateAndTakeRoyaltyFeeFrom(
+        NFTAddress nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 payAmount,
+        address from
+    ) internal returns (uint256) {
+        (address recipient, uint256 royaltyAmount) = _getRoyaltyRegistry().royaltyInfo(nft, tokenId, payAmount);
+        if (recipient != address(0) && royaltyAmount > 0) {
+            _transferPayTokenAmount(paymentToken, from, recipient, royaltyAmount);
+            return royaltyAmount;
+        }
+        return 0;
+    }
+
+    /**`
      * @notice Receive pay token amount
      * @param payToken Address of ERC20
      * @param from Sender address

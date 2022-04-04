@@ -477,6 +477,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
 
         _validatePaymentTokenIsEnabled(paymentToken);
 
+        // amount has to be available and divisible by purchasable token amount
         require(
             buyAmount > 0
             && buyAmount <= erc1155Listing.remainingTokenAmount
@@ -484,15 +485,15 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
             'ERC1155Marketplace: invalid buy amount'
         );
 
-        // calculate price as required amount divided by minimal purchasable amount multiplied by purchasable
-        // amount price
         uint256 basePrice = buyAmount / erc1155Listing.buyTokenAmount * erc1155Listing.listing.price;
 
-        // TODO: take amount into account
-        uint256 finalAmount = basePrice - _calculateAndTakeListingFee(erc1155Listing.listing);
+        uint256 finalAmount = basePrice - _calculateAndTakeListingFeeFrom(
+            basePrice, erc1155Listing.listing.paymentToken, _msgSender()
+        );
 
-        // TODO: Take from sender
-        finalAmount -= _calculateAndTakeRoyaltyFee(nft, tokenId, erc1155Listing.listing.paymentToken, finalAmount);
+        finalAmount -= _calculateAndTakeRoyaltyFeeFrom(
+            nft, tokenId, erc1155Listing.listing.paymentToken, finalAmount, _msgSender()
+        );
 
         _transferPayTokenAmount(erc1155Listing.listing.paymentToken, _msgSender(), owner, finalAmount);
 

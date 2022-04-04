@@ -179,7 +179,7 @@ contract ERC721Marketplace is ERC721Holder, Ownable, ReentrancyGuard, Marketplac
         uint256 price = listedItem.price;
 
         // Calculate and transfer platform fee from buyer to platform
-        uint256 feeAmount = _calculateAndTakeListingFee(listedItem);
+        uint256 feeAmount = _calculateAndTakeListingFeeFrom(listedItem.price, listedItem.paymentToken, _msgSender());
 
         // TODO: Royalty
 
