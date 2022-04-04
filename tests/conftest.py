@@ -25,6 +25,11 @@ def user_3():
     return accounts[3]
 
 
+@pytest.fixture(scope="session")
+def user_4():
+    return accounts[4]
+
+
 @pytest.fixture(scope="module")
 def erc20_mock(owner, user, user_2, user_3):
     contract = ERC20TokenMock.deploy(
@@ -38,6 +43,11 @@ def erc20_mock(owner, user, user_2, user_3):
     contract.mint(user_2, utils.constants.TEST_TOKEN_USER_2_AMOUNT)
     contract.mint(user_3, utils.constants.TEST_TOKEN_USER_3_AMOUNT)
     return contract
+
+
+@pytest.fixture(scope="module")
+def payment_token(erc20_mock):
+    return erc20_mock
 
 
 @pytest.fixture(scope="module")

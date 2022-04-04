@@ -17,9 +17,9 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     using NFTTradable for NFTAddress;
 
     /// @notice NftAddress -> Token ID -> Listed item
-    mapping(address => mapping(uint256 => Listing)) private _listings;
+    mapping(address => mapping(uint256 => Listing)) internal _listings;
     /// @notice NftAddress -> Token ID -> Offer
-    mapping(address => mapping(uint256 =>  Offer)) private _offers;
+    mapping(address => mapping(uint256 =>  Offer)) internal _offers;
     /// @notice NftAddress -> Token ID -> auction
     mapping(address => mapping(uint256 => Auction)) internal _auctions;
     /// @notice NftAddress -> Token ID -> highest bid
@@ -27,7 +27,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
 
     modifier isListed(address nftAddress, uint256 tokenId) {
         Listing memory listing = _listings[nftAddress][tokenId];
-        require(listing.paymentToken != address(0), "ERC721Marketplace: NFT is not listed");
+        require(listing.paymentToken > address(0), "ERC721Marketplace: NFT is not listed");
         _;
     }
 
@@ -431,14 +431,14 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         );
     }
 
-    function _buyListedItem(NFTAddress nftAddress, uint256 tokenId) private {
+    function _buyListedItem(NFTAddress nftAddress, uint256 tokenId) internal {
         Listing memory listedItem = _listings[nftAddress.toAddress()][tokenId];
         address payable owner = listedItem.nftOwner;
         address paymentToken = listedItem.paymentToken;
         uint256 price = listedItem.price;
 
         // Calculate and transfer platform fee from buyer to platform
-        uint256 feeAmount = _calculateAndTakeListingFee(listedItem);
+        uint256 feeAmount = _calculateAndTakeListingFeeFrom(listedItem.price, listedItem.paymentToken, _msgSender());
 
         // TODO: Royalty
 
