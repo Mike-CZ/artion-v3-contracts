@@ -3,7 +3,7 @@ import math
 import pytest
 from enum import Enum
 from dataclasses import dataclass
-from brownie import reverts, Wei, chain
+from brownie import reverts, Wei, chain, ZERO_ADDRESS
 
 
 class OfferStatus(Enum):
@@ -98,13 +98,13 @@ def test_create_offer_escrow_on(
     assert offer[3] == OfferParams.expiration_time
 
     # check event
-    assert tx.events["OfferCreated"] is not None
-    assert tx.events["OfferCreated"]["offeror"] == offeror
-    assert tx.events["OfferCreated"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["OfferCreated"]["tokenId"] == minted_and_approved_token_id
-    assert tx.events["OfferCreated"]["paymentToken"] == payment_token.address
-    assert tx.events["OfferCreated"]["price"] == OfferParams.price
-    assert tx.events["OfferCreated"]["expirationTime"] == OfferParams.expiration_time
+    assert tx.events["ERC721OfferCreated"] is not None
+    assert tx.events["ERC721OfferCreated"]["offeror"] == offeror
+    assert tx.events["ERC721OfferCreated"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721OfferCreated"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721OfferCreated"]["paymentToken"] == payment_token.address
+    assert tx.events["ERC721OfferCreated"]["price"] == OfferParams.price
+    assert tx.events["ERC721OfferCreated"]["expirationTime"] == OfferParams.expiration_time
 
     # check if payment tokens were stored in escrow
     assert payment_token.balanceOf(erc721_marketplace.address) == initial_marketplace_balance + OfferParams.price
@@ -158,7 +158,7 @@ def test_create_offer_invalid_payment_token(
 ):
     """Test offer creation with invalid payment token"""
     token_id = 1
-    payment_token = '0x0000000000000000000000000000000000000000'
+    payment_token = ZERO_ADDRESS
 
     erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
@@ -246,7 +246,6 @@ def test_create_offer_on_listed_nft(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        token_owner,
         payment_token,
         price,
         starting_time,
@@ -324,16 +323,16 @@ def test_cancel_offer(
 
     # check offer existence
     offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
-    assert offer[0] == '0x0000000000000000000000000000000000000000'
-    assert offer[1] == '0x0000000000000000000000000000000000000000'
+    assert offer[0] == ZERO_ADDRESS
+    assert offer[1] == ZERO_ADDRESS
     assert offer[2] == 0
     assert offer[3] == 0
 
     # check event
-    assert tx.events["OfferCanceled"] is not None
-    assert tx.events["OfferCanceled"]["offeror"] == offeror
-    assert tx.events["OfferCanceled"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["OfferCanceled"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721OfferCanceled"] is not None
+    assert tx.events["ERC721OfferCanceled"]["offeror"] == offeror
+    assert tx.events["ERC721OfferCanceled"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721OfferCanceled"]["tokenId"] == minted_and_approved_token_id
 
 
 @pytest.mark.parametrize(
@@ -381,8 +380,8 @@ def test_cancel_offer_after_escrow_update(
 
     # check offer existence
     offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
-    assert offer[0] == '0x0000000000000000000000000000000000000000'
-    assert offer[1] == '0x0000000000000000000000000000000000000000'
+    assert offer[0] == ZERO_ADDRESS
+    assert offer[1] == ZERO_ADDRESS
     assert offer[2] == 0
     assert offer[3] == 0
 
@@ -436,25 +435,25 @@ def test_accept_offer(
     assert erc721_collection_mock.ownerOf(token_id) == offeror
 
     # check event
-    assert tx.events["OfferAccepted"] is not None
-    assert tx.events["OfferAccepted"]["seller"] == token_owner
-    assert tx.events["OfferAccepted"]["buyer"] == offeror
-    assert tx.events["OfferAccepted"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["OfferAccepted"]["tokenId"] == token_id
-    assert tx.events["OfferAccepted"]["price"] == OfferParams.price
-    assert tx.events["OfferAccepted"]["paymentToken"] == payment_token
+    assert tx.events["ERC721OfferAccepted"] is not None
+    assert tx.events["ERC721OfferAccepted"]["seller"] == token_owner
+    assert tx.events["ERC721OfferAccepted"]["buyer"] == offeror
+    assert tx.events["ERC721OfferAccepted"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721OfferAccepted"]["tokenId"] == token_id
+    assert tx.events["ERC721OfferAccepted"]["price"] == OfferParams.price
+    assert tx.events["ERC721OfferAccepted"]["paymentToken"] == payment_token
 
     # check offer existence
     offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
-    assert offer[0] == '0x0000000000000000000000000000000000000000'
-    assert offer[1] == '0x0000000000000000000000000000000000000000'
+    assert offer[0] == ZERO_ADDRESS
+    assert offer[1] == ZERO_ADDRESS
     assert offer[2] == 0
     assert offer[3] == 0
 
     # check listing existence
     listing = erc721_marketplace.getListing(erc721_collection_mock, minted_and_approved_token_id)
-    assert listing[0] == '0x0000000000000000000000000000000000000000'
-    assert listing[1] == '0x0000000000000000000000000000000000000000'
+    assert listing[0] == ZERO_ADDRESS
+    assert listing[1] == ZERO_ADDRESS
     assert listing[2] == 0
     assert listing[3] == 0
 

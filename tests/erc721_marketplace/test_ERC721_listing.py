@@ -1,7 +1,7 @@
 import pytest
 import math
 from dataclasses import dataclass
-from brownie import reverts, Wei, chain
+from brownie import reverts, Wei, chain, ZERO_ADDRESS
 from utils.constants import WFTM_TOKEN, TOMB_TOKEN
 
 
@@ -31,7 +31,6 @@ def test_create_listing(payment_token, minted_and_approved_token_id, erc721_mark
     tx = erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -49,13 +48,13 @@ def test_create_listing(payment_token, minted_and_approved_token_id, erc721_mark
     assert listing[3] == ListingParams.start_time
 
     # check event
-    assert tx.events["ListingCreated"] is not None
-    assert tx.events["ListingCreated"]["nftOwner"] == user
-    assert tx.events["ListingCreated"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ListingCreated"]["tokenId"] == minted_and_approved_token_id
-    assert tx.events["ListingCreated"]["paymentToken"] == payment_token.address
-    assert tx.events["ListingCreated"]["price"] == ListingParams.price
-    assert tx.events["ListingCreated"]["startingTime"] == ListingParams.start_time
+    assert tx.events["ERC721ListingCreated"] is not None
+    assert tx.events["ERC721ListingCreated"]["nftOwner"] == user
+    assert tx.events["ERC721ListingCreated"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721ListingCreated"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721ListingCreated"]["paymentToken"] == payment_token.address
+    assert tx.events["ERC721ListingCreated"]["price"] == ListingParams.price
+    assert tx.events["ERC721ListingCreated"]["startingTime"] == ListingParams.start_time
 
 
 def test_list_already_listed_token(
@@ -70,7 +69,6 @@ def test_list_already_listed_token(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -82,7 +80,6 @@ def test_list_already_listed_token(
         erc721_marketplace.createListing(
             erc721_collection_mock,
             minted_and_approved_token_id,
-            user,
             payment_token,
             ListingParams.price,
             ListingParams.start_time,
@@ -98,7 +95,6 @@ def test_listing_not_erc721(payment_token, erc721_marketplace, erc1155_collectio
         erc721_marketplace.createListing(
             erc1155_collection_mock,
             token_id,
-            user,
             payment_token,
             ListingParams.price,
             ListingParams.start_time,
@@ -114,7 +110,6 @@ def test_invalid_start_time(payment_token, erc721_marketplace, erc721_collection
         erc721_marketplace.createListing(
             erc721_collection_mock,
             token_id,
-            user,
             payment_token,
             ListingParams.price,
             chain.time() - (60 * 60),  # start listing at current time - 1 hour,
@@ -135,7 +130,6 @@ def test_listing_as_not_owner(
         erc721_marketplace.createListing(
             erc721_collection_mock,
             minted_and_approved_token_id,
-            user,
             payment_token,
             ListingParams.price,
             ListingParams.start_time,
@@ -157,7 +151,6 @@ def test_listing_not_approved_token(
         erc721_marketplace.createListing(
             erc721_collection_mock,
             token_id,
-            user,
             payment_token,
             ListingParams.price,
             ListingParams.start_time,
@@ -177,7 +170,6 @@ def test_update_listing(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -201,12 +193,12 @@ def test_update_listing(
     assert listing[2] == updated_listing_price
 
     # check event
-    assert tx.events["ListingUpdated"] is not None
-    assert tx.events["ListingUpdated"]["nftOwner"] == user
-    assert tx.events["ListingUpdated"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ListingUpdated"]["tokenId"] == minted_and_approved_token_id
-    assert tx.events["ListingUpdated"]["newPaymentToken"] == TOMB_TOKEN
-    assert tx.events["ListingUpdated"]["newPrice"] == updated_listing_price
+    assert tx.events["ERC721ListingUpdated"] is not None
+    assert tx.events["ERC721ListingUpdated"]["nftOwner"] == user
+    assert tx.events["ERC721ListingUpdated"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721ListingUpdated"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721ListingUpdated"]["newPaymentToken"] == TOMB_TOKEN
+    assert tx.events["ERC721ListingUpdated"]["newPrice"] == updated_listing_price
 
 
 def test_update_listing_as_not_owner(
@@ -222,7 +214,6 @@ def test_update_listing_as_not_owner(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -259,7 +250,6 @@ def test_cancel_listing(payment_token, minted_and_approved_token_id, erc721_mark
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -278,16 +268,16 @@ def test_cancel_listing(payment_token, minted_and_approved_token_id, erc721_mark
 
     # assert listing was canceled
     listing = erc721_marketplace.getListing(erc721_collection_mock, minted_and_approved_token_id)
-    assert listing[0] == '0x0000000000000000000000000000000000000000'
-    assert listing[1] == '0x0000000000000000000000000000000000000000'
+    assert listing[0] == ZERO_ADDRESS
+    assert listing[1] == ZERO_ADDRESS
     assert listing[2] == 0
     assert listing[3] == 0
 
     # check event
-    assert tx.events["ListingCanceled"] is not None
-    assert tx.events["ListingCanceled"]["nftOwner"] == user
-    assert tx.events["ListingCanceled"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ListingCanceled"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721ListingCanceled"] is not None
+    assert tx.events["ERC721ListingCanceled"]["nftOwner"] == user
+    assert tx.events["ERC721ListingCanceled"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721ListingCanceled"]["tokenId"] == minted_and_approved_token_id
 
 
 def test_cancel_listing_as_not_owner(
@@ -303,7 +293,6 @@ def test_cancel_listing_as_not_owner(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -349,7 +338,6 @@ def test_buy_listed_nft(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         chain.time(),
@@ -381,18 +369,18 @@ def test_buy_listed_nft(
     assert erc721_collection_mock.ownerOf(minted_and_approved_token_id) == user_2
 
     # check event
-    assert tx.events["ListedItemSold"] is not None
-    assert tx.events["ListedItemSold"]["seller"] == user
-    assert tx.events["ListedItemSold"]["buyer"] == user_2
-    assert tx.events["ListedItemSold"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ListedItemSold"]["tokenId"] == minted_and_approved_token_id
-    assert tx.events["ListedItemSold"]["price"] == ListingParams.price
-    assert tx.events["ListedItemSold"]["paymentToken"] == payment_token
+    assert tx.events["ERC721ListedItemSold"] is not None
+    assert tx.events["ERC721ListedItemSold"]["seller"] == user
+    assert tx.events["ERC721ListedItemSold"]["buyer"] == user_2
+    assert tx.events["ERC721ListedItemSold"]["nftAddress"] == erc721_collection_mock
+    assert tx.events["ERC721ListedItemSold"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721ListedItemSold"]["price"] == ListingParams.price
+    assert tx.events["ERC721ListedItemSold"]["paymentToken"] == payment_token
 
     # check Listing removal
     listing = erc721_marketplace.getListing(erc721_collection_mock, minted_and_approved_token_id)
-    assert listing[0] == '0x0000000000000000000000000000000000000000'
-    assert listing[1] == '0x0000000000000000000000000000000000000000'
+    assert listing[0] == ZERO_ADDRESS
+    assert listing[1] == ZERO_ADDRESS
     assert listing[2] == 0
     assert listing[3] == 0
 
@@ -402,7 +390,7 @@ def test_buy_invalid_collection_address(payment_token, minted_and_approved_token
     # buy NOT listed with invalid NFT contract address
     with reverts('ERC721Marketplace: NFT is not listed'):
         erc721_marketplace.buyListedItem(
-            '0x0000000000000000000000000000000000000000',
+            ZERO_ADDRESS,
             minted_and_approved_token_id,
             payment_token,
             {"from": user}
@@ -437,7 +425,6 @@ def test_buy_listed_token_before_start_time(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -471,7 +458,6 @@ def test_buy_listed_nft_with_invalid_pay_token(
     erc721_marketplace.createListing(
         erc721_collection_mock,
         minted_and_approved_token_id,
-        user,
         payment_token,
         ListingParams.price,
         chain.time(),
