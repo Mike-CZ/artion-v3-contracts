@@ -59,37 +59,4 @@ interface IMarketplaceBase {
         address indexed bidder,
         uint256 bid
     );
-
-    // @notice Events for listing
-    event ListingCreated(
-        address indexed owner,
-        address indexed nft,
-        uint256 indexed tokenId,
-        address paymentToken,
-        uint256 price,
-        uint256 startingTime
-    );
-
-    event ListingUpdated(
-        address indexed owner,
-        address indexed nft,
-        uint256 indexed tokenId,
-        address newPaymentToken,
-        uint256 newPrice
-    );
-
-    event ListingCanceled(
-        address indexed owner,
-        address indexed nft,
-        uint256 indexed tokenId
-    );
-
-    event ListedItemSold(
-        address indexed seller,
-        address indexed buyer,
-        address indexed nft,
-        uint256 tokenId,
-        uint256 price,
-        address paymentToken
-    );
 }
