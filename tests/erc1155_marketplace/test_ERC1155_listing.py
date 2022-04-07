@@ -72,7 +72,7 @@ def setup_listing(
             RoyaltyParams.fraction,
             {'from': seller}
         )
-        # create auction
+        # create listing
         erc1155_collection_mock.setApprovalForAll(erc1155_marketplace_mock, True, {'from': seller})
         erc1155_marketplace_mock.createListingAndTransferToken(
             erc1155_collection_mock,
@@ -127,10 +127,10 @@ def test_create_listing(
     assert listing.listing.owner == seller.address
     assert listing.listing.payment_token == payment_token.address
     assert listing.listing.price == price
-    assert listing.listing.startingTime == start_time
-    assert listing.totalTokenAmount == token_amount
-    assert listing.buyTokenAmount == buy_amount
-    assert listing.remainingTokenAmount == token_amount
+    assert listing.listing.starting_time == start_time
+    assert listing.total_token_amount == token_amount
+    assert listing.buy_token_amount == buy_amount
+    assert listing.remaining_token_amount == token_amount
 
     # assert token has been transferred into escrow
     assert erc1155_collection_mock.balanceOf(seller, token_id) == 0
@@ -154,7 +154,7 @@ def test_create_listing_invalid_token_type(
         erc721_collection_mock: ProjectContract,
         erc721_collection_mint: Callable,
         payment_token: ProjectContract,
-        seller
+        seller: LocalAccount
 ) -> None:
     """Test listing creation with invalid token type"""
     token_id = erc721_collection_mint(seller)
@@ -165,52 +165,6 @@ def test_create_listing_invalid_token_type(
             payment_token,
             1,
             1,
-            ListingParams.buy_amount_price,
-            ListingParams.listing_id,
-            ListingParams.start_time,
-            {'from': seller}
-        )
-
-
-def test_create_listing_not_enough_tokens(
-        erc1155_marketplace_mock: ProjectContract,
-        erc1155_collection_mock: ProjectContract,
-        erc1155_collection_mint_with_approval: Callable,
-        payment_token: ProjectContract,
-        seller: LocalAccount
-) -> None:
-    """Test listing creation - not enough tokens"""
-    token_id = erc1155_collection_mint_with_approval(seller, 5)
-    with reverts('ERC1155Marketplace: balance too low'):
-        erc1155_marketplace_mock.createListing(
-            erc1155_collection_mock,
-            token_id,
-            payment_token,
-            10,
-            ListingParams.buy_token_amount,
-            ListingParams.buy_amount_price,
-            ListingParams.listing_id,
-            ListingParams.start_time,
-            {'from': seller}
-        )
-
-
-def test_create_listing_not_approved(
-        erc1155_marketplace_mock: ProjectContract,
-        erc1155_collection_mock: ProjectContract,
-        erc1155_collection_mint: Callable,
-        payment_token: ProjectContract,
-        seller: LocalAccount
-) -> None:
-    """Test listing creation - not approved"""
-    token_id = erc1155_collection_mint(seller, ListingParams.token_amount)
-    with reverts('ERC1155Marketplace: not approved'):
-        erc1155_marketplace_mock.createListing(
-            erc1155_collection_mock,
-            token_id,
-            payment_token,
-            ListingParams.token_amount,
-            ListingParams.buy_token_amount,
             ListingParams.buy_amount_price,
             ListingParams.listing_id,
             ListingParams.start_time,
@@ -528,7 +482,7 @@ def test_buy_listed_nft_partially(
     listing = ERC1155Listing(Listing(*data[0]), *data[1:])
 
     assert listing.exists()
-    assert listing.remainingTokenAmount == ListingParams.token_amount - buy_amount
+    assert listing.remaining_token_amount == ListingParams.token_amount - buy_amount
 
     # check event
     assert tx.events["ERC1155ListedItemSold"] is not None

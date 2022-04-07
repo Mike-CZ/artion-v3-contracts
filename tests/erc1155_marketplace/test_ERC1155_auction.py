@@ -211,54 +211,6 @@ def test_create_action_invalid_token_type(
         )
 
 
-def test_create_action_not_enough_tokens(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc1155_collection_mint,
-        erc20_mock,
-        seller
-):
-    """Test auction creation without enough tokens"""
-    token_id = erc1155_collection_mint(seller, 5)
-    with reverts('ERC1155Marketplace: balance too low'):
-        erc1155_marketplace_mock.createAuction(
-            erc1155_collection_mock,
-            token_id,
-            10,
-            AuctionParams.auction_id,
-            erc20_mock,
-            AuctionParams.reserve_price,
-            AuctionParams.start_time,
-            AuctionParams.end_time,
-            False,
-            {'from': seller}
-        )
-
-
-def test_create_action_not_approved(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc1155_collection_mint,
-        erc20_mock,
-        seller
-):
-    """Test auction creation without approval"""
-    token_id = erc1155_collection_mint(seller, AuctionParams.token_amount)
-    with reverts('ERC1155Marketplace: not approved'):
-        erc1155_marketplace_mock.createAuction(
-            erc1155_collection_mock,
-            token_id,
-            AuctionParams.token_amount,
-            AuctionParams.auction_id,
-            erc20_mock,
-            AuctionParams.reserve_price,
-            AuctionParams.start_time,
-            AuctionParams.end_time,
-            False,
-            {'from': seller}
-        )
-
-
 @given(token_address=strategy('address'))
 def test_create_action_invalid_payment_token(
         erc1155_marketplace_mock,

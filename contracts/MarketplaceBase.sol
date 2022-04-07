@@ -290,15 +290,19 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     * @return uint256 - taken fee
     */
     function _calculateAndTakeOfferFee(Offer memory offer) internal returns (uint256) {
-        uint256 fee = offer.price * _offerFee / 1000;
+        uint256 fee = offer.price * _offerFee / 1_000;
+
+        if (fee == 0) {
+            return 0;
+        }
 
         // If offer was created when payment tokens were not stored in escrow,
         // transfer payment tokens from offeror to fee recipient
         // otherwise transfer payment tokens from escrow to fee recipient
-        if (!offer.paymentTokensInEscrow) {
-            _transferPayTokenAmount(offer.paymentToken, offer.offeror, payable(_feeRecipient), fee);
+        if (offer.paymentTokensInEscrow) {
+            _sendPayTokenAmount(offer.paymentToken, _feeRecipient, fee);
         } else {
-            _sendPayTokenAmount(offer.paymentToken, payable(_feeRecipient), fee);
+            _transferPayTokenAmount(offer.paymentToken, offer.offeror, _feeRecipient, fee);
         }
 
         return fee;
@@ -379,6 +383,16 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _transferPayTokenAmount(address payToken, address from, address to, uint256 amount) internal {
         IERC20(payToken).safeTransferFrom(from, payable(to), amount);
+    }
+
+    /**
+     * @notice Validate if target has enough of payment tokens
+     * @param target Target to validate
+     * @param paymentToken ERC20 payment token
+     * @param amount Total amount of payment tokens
+     */
+    function _validatePaymentTokenAmount(address target, address paymentToken, uint256 amount) internal {
+        require(IERC20(paymentToken).balanceOf(target) >= amount,  "MarketplaceBase: low balance");
     }
 
     /**
@@ -532,6 +546,22 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Validate offer exists
+     * @param offer Offer to validate
+     */
+    function _validateOfferExists(Offer memory offer) internal pure {
+        require(_offerExists(offer), 'MarketplaceBase: offer not exist');
+    }
+
+    /**
+     * @notice Validate offer not exists
+     * @param offer Offer to validate
+     */
+    function _validateOfferNotExists(Offer memory offer) internal pure {
+        require(! _offerExists(offer), 'MarketplaceBase: offer exist');
+    }
+
+    /**
      * @notice Validate auction has started
      * @param auction Auction to validate
      */
@@ -577,6 +607,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      */
     function _validateAuctionNotEnded(Auction memory auction) internal {
         require(! _auctionEnded(auction), 'MarketplaceBase: auction ended');
+    }
+
+    /**
+     * @notice Validate offer has not expired
+     * @param offer Offer to validate
+     */
+    function _validateOfferNotExpired(Offer memory offer) internal {
+        require(offer.expirationTime > _getNow(), 'MarketplaceBase: offer expired');
     }
 
     /**
@@ -642,16 +680,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate if offeror has enough of payment tokens
-     * @param offeror Creator of the offer
-     * @param paymentToken ERC20 payment token
-     * @param price Total amount of payment tokens
-     */
-    function _validateOfferorPaymentTokenAmount(address offeror, address paymentToken, uint256 price) internal {
-        require(IERC20(paymentToken).balanceOf(offeror) >= price,  "MarketplaceBase: offeror hasn't got enough funds");
-    }
-
-    /**
      * @notice Check auction highest bid is above or equal reserve price
      * @param auction Auction to check
      * @param highestBid Highest bid to check
@@ -673,6 +701,15 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Check highest bid exists
+     * @param highestBid Bid to check
+     * @return bool
+     */
+    function _highestBidExists(HighestBid memory highestBid) internal pure returns (bool) {
+        return highestBid.bidAmount > 0;
+    }
+
+    /**
      * @notice Check listing exists
      * @param listing Listing to check
      * @return bool
@@ -682,12 +719,12 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Check highest bid exists
-     * @param highestBid Bid to check
+     * @notice Check offer exists
+     * @param offer Offer to check
      * @return bool
      */
-    function _highestBidExists(HighestBid memory highestBid) internal pure returns (bool) {
-        return highestBid.bidAmount > 0;
+    function _offerExists(Offer memory offer) internal pure returns (bool) {
+        return offer.expirationTime > 0;
     }
 
     /**

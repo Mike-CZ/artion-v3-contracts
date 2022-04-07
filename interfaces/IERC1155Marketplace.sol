@@ -109,4 +109,32 @@ interface IERC1155Marketplace is IMarketplaceBase {
         uint256 price,
         address paymentToken
     );
+
+    event ERC1155OfferCreated(
+        address indexed offeror,
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        uint256 tokenAmount,
+        address paymentToken,
+        uint256 price,
+        uint256 expirationTime,
+        bool isPayTokenInEscrow
+    );
+
+    event ERC1155OfferCanceled(
+        address indexed offeror,
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        uint256 tokenAmount
+    );
+
+    event ERC1155OfferAccepted(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        uint256 tokenAmount,
+        address indexed buyer,
+        address seller,
+        uint256 price,
+        address paymentToken
+    );
 }

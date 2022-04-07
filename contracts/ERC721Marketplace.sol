@@ -202,7 +202,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
             tokenId,
             paymentToken,
             price,
-            expirationTime
+            expirationTime,
+            _escrowOfferPaymentTokens
         );
     }
 
@@ -242,8 +243,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         Offer memory offer = _offers[nftAddress.toAddress()][tokenId];
 
         // If offer was created when payment tokens were not stored in escrow, check if offeror has enough of them
-        if (!offer.paymentTokensInEscrow) {
-            _validateOfferorPaymentTokenAmount(offer.offeror, offer.paymentToken, offer.price);
+        if (! offer.paymentTokensInEscrow) {
+            _validatePaymentTokenAmount(offer.offeror, offer.paymentToken, offer.price);
         }
 
         // Calculate and transfer platform fee
