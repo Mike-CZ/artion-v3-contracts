@@ -76,8 +76,8 @@ interface IERC1155Marketplace is IMarketplaceBase {
         address indexed nft,
         uint256 indexed tokenId,
         uint256 tokenAmount,
-        uint256 buyTokenAmount,
-        uint256 buyAmountPrice,
+        uint256 unitSize,
+        uint256 unitPrice,
         uint256 listingId,
         address paymentToken,
         uint256 startingTime

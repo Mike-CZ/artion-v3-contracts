@@ -233,7 +233,7 @@ def test_create_offer_already_exists(
     """Test offer creation when already exists"""
     setup_offer()
 
-    with reverts('MarketplaceBase: offer exist'):
+    with reverts('MarketplaceBase: offer exists'):
         erc1155_marketplace_mock.createOffer(
             erc1155_collection_mock,
             OfferParams.token_id,
@@ -311,7 +311,7 @@ def test_cancel_offer_not_exists(
 ) -> None:
     """Test offer cancel when does not exist"""
 
-    with reverts('MarketplaceBase: offer not exist'):
+    with reverts('MarketplaceBase: offer not exists'):
         erc1155_marketplace_mock.cancelOffer(
             erc1155_collection_mock,
             OfferParams.token_id,
@@ -393,7 +393,7 @@ def test_accept_offer_not_exists(
         token_owner: LocalAccount
 ) -> None:
     """Test offer accept - not exist"""
-    with reverts('MarketplaceBase: offer not exist'):
+    with reverts('MarketplaceBase: offer not exists'):
         erc1155_marketplace_mock.cancelOffer(
             erc1155_collection_mock,
             OfferParams.token_id,

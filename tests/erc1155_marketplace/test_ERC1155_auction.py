@@ -357,7 +357,7 @@ def test_place_bid_auction_not_exist(
         bidder
 ):
     """Test place bid when auction does not exist"""
-    with reverts('MarketplaceBase: auction not exist'):
+    with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.placeBid(
             erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id, 10, {'from': bidder}
         )
@@ -585,7 +585,7 @@ def test_cancel_auction(
 
 def test_cancel_auction_action_not_exist(erc1155_marketplace_mock, erc1155_collection_mock, seller):
     """Test cancelling auction when auction does not exist"""
-    with reverts('MarketplaceBase: auction not exist'):
+    with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.cancelAuction(
             erc1155_collection_mock, AuctionParams.token_id, AuctionParams.auction_id, {'from': seller}
         )
@@ -777,7 +777,7 @@ def test_finish_auction_not_exist(
         bidder
 ):
     """Test finish auction when not exist"""
-    with reverts('MarketplaceBase: auction not exist'):
+    with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.finishAuction(
             erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id, {'from': bidder}
         )
@@ -919,7 +919,7 @@ def test_update_auction_reserve_price_auction_not_exist(
         seller
 ):
     """Test update auction reserve price when auction does not exist"""
-    with reverts('MarketplaceBase: auction not exist'):
+    with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.updateAuctionReservePrice(
             erc1155_collection_mock,
             AuctionParams.token_id,

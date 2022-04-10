@@ -15,9 +15,9 @@ class Listing:
 @dataclass(frozen=True)
 class ERC1155Listing:
     listing: Listing
-    total_token_amount: int
-    buy_token_amount: int
+    token_amount: int
     remaining_token_amount: int
+    unit_size: int
 
     def exists(self) -> bool:
         return self.listing.exists()

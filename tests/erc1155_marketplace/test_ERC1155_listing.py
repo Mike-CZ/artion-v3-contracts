@@ -16,8 +16,8 @@ from hypothesis import settings
 class ListingParams:
     token_id: int = 1_000_000
     token_amount: int = 50
-    buy_token_amount: int = 10
-    buy_amount_price: int = 100
+    unit_size: int = 10
+    unit_price: int = 100
     start_time: int = chain.time() + (60 * 60)  # start listing at current time + 1 hour
     listing_id: int = 1
 
@@ -80,8 +80,8 @@ def setup_listing(
             seller,
             payment_token,
             ListingParams.token_amount,
-            ListingParams.buy_token_amount,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_size,
+            ListingParams.unit_price,
             ListingParams.listing_id,
             ListingParams.start_time
         )
@@ -99,8 +99,8 @@ def test_create_listing(
 ) -> None:
     """Test listing creation"""
     token_amount = 10
-    buy_amount = 1
-    price = 5
+    unit_size = 1
+    unit_price = 5
     listing_id = 9
     start_time = chain.time() + 30
 
@@ -112,8 +112,8 @@ def test_create_listing(
         token_id,
         payment_token,
         token_amount,
-        buy_amount,
-        price,
+        unit_size,
+        unit_price,
         listing_id,
         start_time,
         {'from': seller}
@@ -126,10 +126,10 @@ def test_create_listing(
     assert listing.exists()
     assert listing.listing.owner == seller.address
     assert listing.listing.payment_token == payment_token.address
-    assert listing.listing.price == price
+    assert listing.listing.price == unit_price
     assert listing.listing.starting_time == start_time
-    assert listing.total_token_amount == token_amount
-    assert listing.buy_token_amount == buy_amount
+    assert listing.token_amount == token_amount
+    assert listing.unit_size == unit_size
     assert listing.remaining_token_amount == token_amount
 
     # assert token has been transferred into escrow
@@ -142,8 +142,8 @@ def test_create_listing(
     assert tx.events['ERC1155ListingCreated']['nft'] == erc1155_collection_mock.address
     assert tx.events['ERC1155ListingCreated']['tokenId'] == token_id
     assert tx.events['ERC1155ListingCreated']['tokenAmount'] == token_amount
-    assert tx.events['ERC1155ListingCreated']['buyTokenAmount'] == buy_amount
-    assert tx.events['ERC1155ListingCreated']['buyAmountPrice'] == price
+    assert tx.events['ERC1155ListingCreated']['unitSize'] == unit_size
+    assert tx.events['ERC1155ListingCreated']['unitPrice'] == unit_price
     assert tx.events['ERC1155ListingCreated']['listingId'] == listing_id
     assert tx.events['ERC1155ListingCreated']['paymentToken'] == payment_token.address
     assert tx.events['ERC1155ListingCreated']['startingTime'] == start_time
@@ -165,7 +165,7 @@ def test_create_listing_invalid_token_type(
             payment_token,
             1,
             1,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_price,
             ListingParams.listing_id,
             ListingParams.start_time,
             {'from': seller}
@@ -187,8 +187,8 @@ def test_create_listing_invalid_time(
             token_id,
             payment_token,
             ListingParams.token_amount,
-            ListingParams.buy_token_amount,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_size,
+            ListingParams.unit_price,
             ListingParams.listing_id,
             chain.time() - 1,
             {'from': seller}
@@ -212,8 +212,31 @@ def test_create_listing_payment_token_not_enabled(
             token_id,
             token_address,
             ListingParams.token_amount,
-            ListingParams.buy_token_amount,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_size,
+            ListingParams.unit_price,
+            ListingParams.listing_id,
+            ListingParams.start_time,
+            {'from': seller}
+        )
+
+
+def test_create_listing_already_exists(
+        setup_listing: Callable,
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
+        seller: LocalAccount
+) -> None:
+    """Test listing creation - already exists"""
+    setup_listing()
+    with reverts('MarketplaceBase: listing exists'):
+        erc1155_marketplace_mock.createListing(
+            erc1155_collection_mock,
+            ListingParams.token_id,
+            payment_token,
+            ListingParams.token_amount,
+            ListingParams.unit_size,
+            ListingParams.unit_price,
             ListingParams.listing_id,
             ListingParams.start_time,
             {'from': seller}
@@ -236,7 +259,7 @@ def test_create_listing_invalid_amount(
             payment_token,
             10,
             3,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_price,
             ListingParams.listing_id,
             ListingParams.start_time,
             {'from': seller}
@@ -252,7 +275,7 @@ def test_update_listing(
     """Test listing update"""
     setup_listing()
 
-    updated_listing_price = ListingParams.buy_amount_price + 50
+    updated_listing_price = ListingParams.unit_price + 50
 
     tx = erc1155_marketplace_mock.updateListing(
         erc1155_collection_mock,
@@ -289,13 +312,13 @@ def test_update_listing_not_exists(
         seller: LocalAccount
 ) -> None:
     """Test updating process - token not listed"""
-    with reverts('MarketplaceBase: listing not exist'):
+    with reverts('MarketplaceBase: listing not exists'):
         erc1155_marketplace_mock.updateListing(
             erc1155_collection_mock,
             ListingParams.token_id,
             ListingParams.listing_id,
             TOMB_TOKEN,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_price,
             {'from': seller}
         )
 
@@ -318,7 +341,7 @@ def test_update_listing_payment_token_not_enabled(
             ListingParams.token_id,
             ListingParams.listing_id,
             token_address,
-            ListingParams.buy_amount_price,
+            ListingParams.unit_price,
             {'from': seller}
         )
 
@@ -373,7 +396,7 @@ def test_cancel_listing_not_exists(
         seller: LocalAccount
 ) -> None:
     """Test canceling process - token not listed"""
-    with reverts('MarketplaceBase: listing not exist'):
+    with reverts('MarketplaceBase: listing not exists'):
         erc1155_marketplace_mock.cancelListing(
             erc1155_collection_mock,
             ListingParams.token_id,
@@ -405,7 +428,8 @@ def test_buy_listed_nft(
         erc1155_marketplace_mock, ListingParams.token_id
     )
 
-    price = ListingParams.token_amount / ListingParams.buy_token_amount * ListingParams.buy_amount_price
+    requested_units = ListingParams.token_amount / ListingParams.unit_size
+    price = int(requested_units * ListingParams.unit_price)
     payment_token.approveInternal(buyer, erc1155_marketplace_mock, price)
 
     tx = erc1155_marketplace_mock.buyListedItem(
@@ -413,7 +437,9 @@ def test_buy_listed_nft(
         ListingParams.token_id,
         seller,
         ListingParams.listing_id,
-        ListingParams.token_amount,
+        ListingParams.unit_price,
+        payment_token,
+        requested_units,
         {"from": buyer}
     )
 
@@ -462,8 +488,9 @@ def test_buy_listed_nft_partially(
     """Test valid partial buying process"""
     setup_listing()
 
-    buy_amount = 20
-    price = buy_amount / ListingParams.buy_token_amount * ListingParams.buy_amount_price
+    buy_units = 2
+    token_amount = buy_units * ListingParams.unit_size
+    price = buy_units * ListingParams.unit_price
     payment_token.approveInternal(buyer, erc1155_marketplace_mock, price)
 
     tx = erc1155_marketplace_mock.buyListedItem(
@@ -471,7 +498,9 @@ def test_buy_listed_nft_partially(
         ListingParams.token_id,
         seller,
         ListingParams.listing_id,
-        buy_amount,
+        ListingParams.unit_price,
+        payment_token,
+        buy_units,
         {"from": buyer}
     )
 
@@ -482,29 +511,32 @@ def test_buy_listed_nft_partially(
     listing = ERC1155Listing(Listing(*data[0]), *data[1:])
 
     assert listing.exists()
-    assert listing.remaining_token_amount == ListingParams.token_amount - buy_amount
+    assert listing.remaining_token_amount == ListingParams.token_amount - token_amount
 
     # check event
     assert tx.events["ERC1155ListedItemSold"] is not None
-    assert tx.events["ERC1155ListedItemSold"]["amount"] == buy_amount
-    assert tx.events["ERC1155ListedItemSold"]["remainingAmount"] == ListingParams.token_amount - buy_amount
+    assert tx.events["ERC1155ListedItemSold"]["amount"] == token_amount
+    assert tx.events["ERC1155ListedItemSold"]["remainingAmount"] == ListingParams.token_amount - token_amount
     assert tx.events["ERC1155ListedItemSold"]["price"] == price
 
 
 def test_buy_listed_nft_not_listed(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
         buyer: LocalAccount,
         seller: LocalAccount
 ) -> None:
     """Test buying process - token not listed"""
-    with reverts('MarketplaceBase: listing not exist'):
+    with reverts('MarketplaceBase: listing not exists'):
         erc1155_marketplace_mock.buyListedItem(
             erc1155_collection_mock,
             ListingParams.token_id,
             seller,
             ListingParams.listing_id,
-            ListingParams.token_amount,
+            ListingParams.unit_price,
+            payment_token,
+            ListingParams.token_amount / ListingParams.unit_size,
             {"from": buyer}
         )
 
@@ -513,6 +545,7 @@ def test_buy_listed_nft_not_started(
         setup_listing: Callable,
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
         buyer: LocalAccount,
         seller: LocalAccount
 ) -> None:
@@ -525,48 +558,45 @@ def test_buy_listed_nft_not_started(
             ListingParams.token_id,
             seller,
             ListingParams.listing_id,
-            ListingParams.token_amount,
+            ListingParams.unit_price,
+            payment_token,
+            ListingParams.token_amount / ListingParams.unit_size,
             {"from": buyer}
         )
 
 
-def test_buy_listed_nft_invalid_amount(
+def test_buy_listed_nft_invalid_units(
         setup_listing: Callable,
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
         buyer: LocalAccount,
         seller: LocalAccount
 ) -> None:
     """Test buying process - invalid amount"""
     setup_listing()
 
-    with reverts('ERC1155Marketplace: invalid buy amount'):
+    with reverts('ERC1155Marketplace: invalid units'):
         erc1155_marketplace_mock.buyListedItem(
             erc1155_collection_mock,
             ListingParams.token_id,
             seller,
             ListingParams.listing_id,
+            ListingParams.unit_price,
+            payment_token,
             0,
             {"from": buyer}
         )
 
-    with reverts('ERC1155Marketplace: invalid buy amount'):
+    with reverts('ERC1155Marketplace: invalid units'):
         erc1155_marketplace_mock.buyListedItem(
             erc1155_collection_mock,
             ListingParams.token_id,
             seller,
             ListingParams.listing_id,
-            ListingParams.token_amount + 1,
-            {"from": buyer}
-        )
-
-    with reverts('ERC1155Marketplace: invalid buy amount'):
-        erc1155_marketplace_mock.buyListedItem(
-            erc1155_collection_mock,
-            ListingParams.token_id,
-            seller,
-            ListingParams.listing_id,
-            ListingParams.buy_token_amount + 1,
+            ListingParams.unit_price,
+            payment_token,
+            ((ListingParams.token_amount / ListingParams.unit_size) + 1) * ListingParams.unit_price,
             {"from": buyer}
         )
 

@@ -423,6 +423,24 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
+     * @notice Validate payment token addresses match
+     * @param firstAddress First address to compare
+     * @param secondAddress Second address to compare
+     */
+    function _validatePaymentTokenAddressMatch(address firstAddress, address secondAddress) internal pure {
+        require(firstAddress == secondAddress, 'MarketplaceBase: payment token mismatch');
+    }
+
+    /**
+     * @notice Validate prices match
+     * @param firstPrice First price to compare
+     * @param secondPrice Second price to compare
+     */
+    function _validatePriceMatch(uint256 firstPrice, uint256 secondPrice) internal pure {
+        require(firstPrice == secondPrice, 'MarketplaceBase: price mismatch');
+    }
+
+    /**
      * @notice Validate address is auction owner
      * @param auction Auction to validate
      * @param entrant Address to validate
@@ -526,7 +544,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param auction Auction to validate
      */
     function _validateAuctionExists(Auction memory auction) internal pure {
-        require(_auctionExists(auction), 'MarketplaceBase: auction not exist');
+        require(_auctionExists(auction), 'MarketplaceBase: auction not exists');
     }
 
     /**
@@ -542,7 +560,15 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param listing Listing to validate
      */
     function _validateListingExists(Listing memory listing) internal pure {
-        require(_listingExists(listing), 'MarketplaceBase: listing not exist');
+        require(_listingExists(listing), 'MarketplaceBase: listing not exists');
+    }
+
+    /**
+     * @notice Validate listing not exists
+     * @param listing Listing to validate
+     */
+    function _validateListingNotExists(Listing memory listing) internal pure {
+        require(! _listingExists(listing), 'MarketplaceBase: listing exists');
     }
 
     /**
@@ -550,7 +576,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param offer Offer to validate
      */
     function _validateOfferExists(Offer memory offer) internal pure {
-        require(_offerExists(offer), 'MarketplaceBase: offer not exist');
+        require(_offerExists(offer), 'MarketplaceBase: offer not exists');
     }
 
     /**
@@ -558,7 +584,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
      * @param offer Offer to validate
      */
     function _validateOfferNotExists(Offer memory offer) internal pure {
-        require(! _offerExists(offer), 'MarketplaceBase: offer exist');
+        require(! _offerExists(offer), 'MarketplaceBase: offer exists');
     }
 
     /**
