@@ -18,8 +18,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
 
     /// @notice NftAddress -> Token ID -> Listed item
     mapping(address => mapping(uint256 => Listing)) internal _listings;
-    /// @notice NftAddress -> Token ID -> Offer
-    mapping(address => mapping(uint256 =>  Offer)) internal _offers;
+    /// @notice NftAddress -> Token ID -> Offeror -> Offer
+    mapping(address => mapping(uint256 =>  mapping(address => Offer))) internal _offers;
     /// @notice NftAddress -> Token ID -> auction
     mapping(address => mapping(uint256 => Auction)) internal _auctions;
     /// @notice NftAddress -> Token ID -> highest bid
@@ -37,20 +37,20 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         _;
     }
 
-    modifier offerExists(address nftAddress, uint256 tokenId) {
-        Offer memory offer = _offers[nftAddress][tokenId];
+    modifier offerExists(address nftAddress, uint256 tokenId, address offeror) {
+        Offer memory offer = _offers[nftAddress][tokenId][offeror];
         require(offer.paymentToken != address(0), "ERC721Marketplace: offer does not exists");
         _;
     }
 
-    modifier offerNotExpired(address nftAddress, uint256 tokenId) {
-        Offer memory offer = _offers[nftAddress][tokenId];
+    modifier offerNotExpired(address nftAddress, uint256 tokenId, address offeror) {
+        Offer memory offer = _offers[nftAddress][tokenId][offeror];
         require(offer.expirationTime > _getNow(), "ERC721Marketplace: offer is expired");
         _;
     }
 
-    modifier offerNotExists(address nftAddress, uint256 tokenId) {
-        Offer memory offer = _offers[nftAddress][tokenId];
+    modifier offerNotExists(address nftAddress, uint256 tokenId, address offeror) {
+        Offer memory offer = _offers[nftAddress][tokenId][offeror];
         require(offer.paymentToken == address(0), "ERC721Marketplace: offer already exists");
         _;
     }
@@ -174,7 +174,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         address paymentToken,
         uint256 price,
         uint256 expirationTime
-    ) external offerNotExists(nftAddress.toAddress(), tokenId) {
+    ) external offerNotExists(nftAddress.toAddress(), tokenId, _msgSender()) {
         _validateTokenInterface(nftAddress);
 
         _validatePaymentTokenIsEnabled(paymentToken);
@@ -188,7 +188,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
             _receivePayTokenAmount(paymentToken, _msgSender(), price);
         }
 
-        _offers[nftAddress.toAddress()][tokenId] = Offer(
+        _offers[nftAddress.toAddress()][tokenId][_msgSender()] = Offer(
             paymentToken,
             _msgSender(),
             price,
@@ -212,8 +212,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     function cancelOffer(
         NFTAddress nftAddress,
         uint256 tokenId
-    ) external offerExists(nftAddress.toAddress(), tokenId) {
-        Offer memory offer = _offers[nftAddress.toAddress()][tokenId];
+    ) external offerExists(nftAddress.toAddress(), tokenId, _msgSender()) {
+        Offer memory offer = getOffer(nftAddress.toAddress(), tokenId, _msgSender());
         _validateOfferOwnership(offer.offeror);
 
         // Return locked payment tokens to offeror
@@ -221,7 +221,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
             _sendPayTokenAmount(offer.paymentToken, payable(offer.offeror), offer.price);
         }
 
-        delete (_offers[nftAddress.toAddress()][tokenId]);
+        delete (_offers[nftAddress.toAddress()][tokenId][_msgSender()]);
         emit ERC721OfferCanceled(_msgSender(), nftAddress.toAddress(), tokenId);
     }
 
@@ -230,20 +230,21 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     /// @param tokenId TokenId
     function acceptOffer(
         NFTAddress nftAddress,
-        uint256 tokenId
+        uint256 tokenId,
+        address offeror
     )
         external
         nonReentrant
-        offerExists(nftAddress.toAddress(), tokenId)
-        offerNotExpired(nftAddress.toAddress(), tokenId)
+        offerExists(nftAddress.toAddress(), tokenId, offeror)
+        offerNotExpired(nftAddress.toAddress(), tokenId, offeror)
     {
         _validateOwnership(nftAddress.toERC721().ownerOf(tokenId));
 
-        Offer memory offer = _offers[nftAddress.toAddress()][tokenId];
+        Offer memory offer = getOffer(nftAddress.toAddress(), tokenId, offeror);
 
         // If offer was created when payment tokens were not stored in escrow, check if offeror has enough of them
         if (!offer.paymentTokensInEscrow) {
-            _validateOfferorPaymentTokenAmount(offer.offeror, offer.paymentToken, offer.price);
+            _validateOfferorPaymentTokenAmount(offeror, offer.paymentToken, offer.price);
         }
 
         // Calculate and transfer platform fee
@@ -255,18 +256,18 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         // transfer payment tokens from offeror to owner of NFT,
         // transfer payment tokens from escrow to owner of NF otherwise
         if (!offer.paymentTokensInEscrow) {
-            _transferPayTokenAmount(offer.paymentToken, offer.offeror, payable(_msgSender()), offer.price - feeAmount);
+            _transferPayTokenAmount(offer.paymentToken, offeror, payable(_msgSender()), offer.price - feeAmount);
         } else {
             _sendPayTokenAmount(offer.paymentToken, payable(_msgSender()), offer.price - feeAmount);
         }
 
         // Transfer NFT to offeror
-        nftAddress.toERC721().safeTransferFrom(_msgSender(), offer.offeror, tokenId, new bytes(0));
+        nftAddress.toERC721().safeTransferFrom(_msgSender(), offeror, tokenId, new bytes(0));
 
         emit ERC721OfferAccepted(
             nftAddress.toAddress(),
             tokenId,
-            offer.offeror,
+            offeror,
             _msgSender(),
             offer.price,
             offer.paymentToken
@@ -275,7 +276,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         // If an offer was created, then the token listed and then the offer accepted,
         // there is and listing to be removed
         delete (_listings[nftAddress.toAddress()][tokenId]);
-        delete (_offers[nftAddress.toAddress()][tokenId]);
+        delete (_offers[nftAddress.toAddress()][tokenId][offeror]);
     }
 
     /**
@@ -299,9 +300,9 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     ) public {
         _validateTokenInterface(nftAddress);
         _validatePaymentTokenIsEnabled(paymentToken);
+        _validateAuctionNotExists(getAuction(nftAddress, tokenId));
         _validateOwnershipAndApproval(nftAddress, tokenId);
         _validateNewAuctionTime(startTime, endTime);
-        _validateAuctionNotExists(getAuction(nftAddress, tokenId));
 
         _createAuctionAndTransferToken(
             nftAddress, tokenId, _msgSender(), paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
@@ -318,8 +319,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     function cancelAuction(NFTAddress nftAddress, uint256 tokenId) public {
         Auction memory auction = getAuction(nftAddress, tokenId);
         _validateAuctionExists(auction);
-
-        // TODO: Validate auction ownership
+        _validateOwnership(auction.owner);
 
         HighestBid memory highestBid = getHighestBid(nftAddress, tokenId);
         _validateAuctionHighestBidBelowReservePrice(auction, highestBid);
@@ -330,10 +330,133 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         if (_highestBidExists(highestBid)) {
             _refundHighestBid(auction, highestBid);
             _deleteHighestBid(nftAddress, tokenId);
-            emit BidRefunded(
+            emit ERC721BidRefunded(
                 nftAddress.toAddress(), auction.owner, tokenId, highestBid.bidder, highestBid.bidAmount
             );
         }
+    }
+
+    /**
+     * @notice Finish auction successfully
+     * @dev Successfully finish auction, to unsuccessfully finish auction call `cancelAuction`
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     */
+    function finishAuction(NFTAddress nftAddress, uint256 tokenId) public {
+        (Auction memory auction, HighestBid memory highestBid) =
+            _getValidatedFinishedAuctionAndHighestBid(nftAddress, tokenId);
+
+        _validateAuctionOrHighestBidOwner(auction, highestBid, _msgSender());
+        _validateAuctionHighestBidAboveOrEqualReservePrice(auction, highestBid);
+
+        _finishAuctionSuccessFully(nftAddress, tokenId, auction, highestBid);
+    }
+
+    /**
+     * @notice Finish auction successfully with bid below reserve price
+     * @dev Successfully finish auction, to unsuccessfully finish auction call `cancelAuction`
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     */
+    function finishAuctionBelowReservePrice(NFTAddress nftAddress, uint256 tokenId) public {
+        (Auction memory auction, HighestBid memory highestBid) =
+            _getValidatedFinishedAuctionAndHighestBid(nftAddress, tokenId);
+
+        _validateAuctionOwner(auction, _msgSender());
+        _validateAuctionHighestBidBelowReservePrice(auction, highestBid);
+
+        _finishAuctionSuccessFully(nftAddress, tokenId, auction, highestBid);
+    }
+
+        /**
+     * @notice Update auction reserve price
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     * @param reservePrice New reserve price
+     */
+    function updateAuctionReservePrice(
+        NFTAddress nftAddress,
+        uint256 tokenId,
+        uint256 reservePrice
+    ) public {
+        Auction memory auction = getAuction(nftAddress, tokenId);
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionReservePriceUpdate(auction, reservePrice);
+
+        _auctions[nftAddress.toAddress()][tokenId].reservePrice = reservePrice;
+
+        emit ERC721AuctionReservePriceUpdated(
+            nftAddress.toAddress(),
+            tokenId,
+            _msgSender(),
+            reservePrice
+        );
+    }
+
+    /**
+     * @notice Place bid
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     * @param bidAmount Bid amount
+     */
+    function placeBid(NFTAddress nftAddress, uint256 tokenId, uint256 bidAmount) public {
+        Auction memory auction = getAuction(nftAddress, tokenId);
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionStarted(auction);
+
+        _validateAuctionNotEnded(auction);
+
+        _validateAuctionBidderNotOwner(auction, _msgSender());
+
+        HighestBid memory highestBid = getHighestBid(nftAddress, tokenId);
+
+        _validateAuctionBidAmount(auction, highestBid, bidAmount);
+
+        _createBidAndTransferPayTokenAmount(
+            nftAddress, auction.paymentToken, tokenId, _msgSender(), bidAmount
+        );
+
+        emit ERC721BidPlaced(nftAddress.toAddress(), auction.owner, tokenId, _msgSender(), bidAmount);
+
+        if (_highestBidExists(highestBid)) {
+            _refundHighestBid(auction, highestBid);
+            emit ERC721BidRefunded(
+                nftAddress.toAddress(),
+                auction.owner,
+                tokenId,
+                highestBid.bidder,
+                highestBid.bidAmount
+            );
+        }
+    }
+
+    /**
+     * @notice Withdraw bid
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     */
+    function withdrawBid(NFTAddress nftAddress, uint256 tokenId) public {
+        HighestBid memory highestBid = getHighestBid(nftAddress, tokenId);
+
+        _validateAuctionHighestBidOwner(highestBid, _msgSender());
+
+        Auction memory auction = getAuction(nftAddress, tokenId);
+
+        _validateAuctionEnded(auction);
+
+        _validateAuctionHighestBidIsWithdrawable(auction, highestBid);
+
+        _deleteHighestBid(nftAddress, tokenId);
+
+        _refundHighestBid(auction, highestBid);
+
+        emit ERC721BidWithdrawn(
+            nftAddress.toAddress(), auction.owner, tokenId, _msgSender(), highestBid.bidAmount
+        );
     }
 
     ////////////////////////////
@@ -346,7 +469,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
      * @param tokenId Token identifier
      * @return Listing
      */
-    function getListing(address nftAddress, uint256 tokenId) external view returns (Listing memory) {
+    function getListing(address nftAddress, uint256 tokenId) public view returns (Listing memory) {
         return _listings[nftAddress][tokenId];
     }
 
@@ -356,8 +479,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
      * @param tokenId Token identifier
      * @return Offer
      */
-    function getOffer(address nftAddress, uint256 tokenId) external view returns (Offer memory) {
-        return _offers[nftAddress][tokenId];
+    function getOffer(address nftAddress, uint256 tokenId, address offeror) public view returns (Offer memory) {
+        return _offers[nftAddress][tokenId][offeror];
     }
 
     /**
@@ -461,8 +584,45 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     }
 
     /**
+     * @notice Successfully finish an auction
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     * @param auction Auction to finish
+     * @param highestBid Auction highest bid
+     */
+    function _finishAuctionSuccessFully(
+        NFTAddress nftAddress,
+        uint256 tokenId,
+        Auction memory auction,
+        HighestBid memory highestBid
+    ) internal {
+        _deleteAuction(nftAddress, tokenId);
+        _deleteHighestBid(nftAddress, tokenId);
+
+        uint256 finalAmount = highestBid.bidAmount - _calculateAndTakeAuctionFee(auction, highestBid);
+        finalAmount -= _calculateAndTakeRoyaltyFee(nftAddress, tokenId, auction.paymentToken, finalAmount);
+
+        if (finalAmount > 0) {
+            _sendPayTokenAmount(auction.paymentToken, auction.owner, finalAmount);
+        }
+
+        nftAddress.toERC721().safeTransferFrom(
+            address(this), highestBid.bidder, tokenId, new bytes(0)
+        );
+
+        emit ERC721AuctionFinished(
+            auction.owner,
+            nftAddress.toAddress(),
+            tokenId,
+            highestBid.bidder,
+            auction.paymentToken,
+            highestBid.bidAmount
+        );
+    }
+
+    /**
      * @notice Create new auction and transfer token
-     * @param nft NFT address
+     * @param nftAddress NFT address
      * @param tokenId Token identifier
      * @param owner Token owner
      * @param paymentToken Payment token that will be used for auction
@@ -472,7 +632,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
      * @param isMinBidReservePrice NFT address
      */
     function _createAuctionAndTransferToken(
-        NFTAddress nft,
+        NFTAddress nftAddress,
         uint256 tokenId,
         address owner,
         address paymentToken,
@@ -481,7 +641,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         uint256 endTime,
         bool isMinBidReservePrice
     ) internal {
-        _auctions[nft.toAddress()][tokenId] = Auction({
+        _auctions[nftAddress.toAddress()][tokenId] = Auction({
             owner: owner,
             paymentToken: paymentToken,
             isMinBidReservePrice: isMinBidReservePrice,
@@ -491,7 +651,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
         });
 
         // transfer token to be held in escrow
-        nft.toERC721().safeTransferFrom(owner, address(this), tokenId, new bytes(0));
+        nftAddress.toERC721().safeTransferFrom(owner, address(this), tokenId, new bytes(0));
     }
 
     /**
@@ -503,7 +663,7 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
     function _deleteAuctionAndTransferToken(NFTAddress nftAddress, Auction memory auction, uint256 tokenId) internal {
         address owner = auction.owner;
 
-        _deleteAuction(nftAddress, tokenId, owner);
+        _deleteAuction(nftAddress, tokenId);
 
         // transfer token back to owner
         nftAddress.toERC721().safeTransferFrom(address(this), owner, tokenId, new bytes(0));
@@ -513,9 +673,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
      * @notice Delete auction
      * @param nftAddress NFT address
      * @param tokenId Token identifier
-     * @param owner Auction owner
      */
-    function _deleteAuction(NFTAddress nftAddress, uint256 tokenId, address owner) internal {
+    function _deleteAuction(NFTAddress nftAddress, uint256 tokenId) internal {
         delete _auctions[nftAddress.toAddress()][tokenId];
     }
 
@@ -526,5 +685,51 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
      */
     function _deleteHighestBid(NFTAddress nftAddress, uint256 tokenId) internal {
         delete _highestBids[nftAddress.toAddress()][tokenId];
+    }
+
+    /**
+     * @notice Get validated finished auction and highest bid
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     */
+    function _getValidatedFinishedAuctionAndHighestBid(
+        NFTAddress nftAddress,
+        uint256 tokenId
+    ) internal returns (Auction memory, HighestBid memory) {
+        Auction memory auction = getAuction(nftAddress, tokenId);
+
+        _validateAuctionExists(auction);
+
+        _validateAuctionEnded(auction);
+
+        HighestBid memory highestBid = getHighestBid(nftAddress, tokenId);
+
+        _validateHighestBidExists(highestBid);
+
+        return (auction, highestBid);
+    }
+
+    /**
+     * @notice Create bid and transfer pay token amount
+     * @param nftAddress NFT address
+     * @param paymentToken Payment token
+     * @param tokenId Token identifier
+     * @param bidder Bid owner
+     * @param bidAmount Bid amount
+     */
+    function _createBidAndTransferPayTokenAmount(
+        NFTAddress nftAddress,
+        address paymentToken,
+        uint256 tokenId,
+        address bidder,
+        uint256 bidAmount
+    ) internal {
+        _highestBids[nftAddress.toAddress()][tokenId] = HighestBid({
+            bidder: bidder,
+            bidAmount: bidAmount,
+            time: _getNow()
+        });
+
+        _receivePayTokenAmount(paymentToken, bidder, bidAmount);
     }
 }

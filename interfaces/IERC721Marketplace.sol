@@ -95,4 +95,28 @@ interface IERC721Marketplace is IMarketplaceBase {
         address indexed owner,
         uint256 reservePrice
     );
+
+    event ERC721BidRefunded(
+        address indexed nftAddress,
+        address nftOwner,
+        uint256 indexed tokenId,
+        address indexed bidder,
+        uint256 bid
+    );
+
+    event ERC721BidPlaced(
+        address indexed nftAddress,
+        address nftOwner,
+        uint256 indexed tokenId,
+        address indexed bidder,
+        uint256 bid
+    );
+
+    event ERC721BidWithdrawn(
+        address indexed nftAddress,
+        address nftOwner,
+        uint256 indexed tokenId,
+        address indexed bidder,
+        uint256 bid
+    );
 }

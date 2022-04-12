@@ -18,11 +18,6 @@ class OfferParams:
 
 
 @pytest.fixture(scope="module")
-def payment_token(erc20_mock):
-    return erc20_mock
-
-
-@pytest.fixture(scope="module")
 def token_owner(user):
     return user
 
@@ -38,21 +33,18 @@ def handle_offer_status(status: OfferStatus):
         chain.mine()
 
 
-@pytest.fixture(scope="module")
-def minted_and_approved_token_id(erc721_collection_mock, erc721_collection_mint, erc721_marketplace, token_owner):
-    # mint token and set approval
-    token_id = erc721_collection_mint(token_owner)
-    erc721_collection_mock.approve(erc721_marketplace, token_id, {'from': token_owner})
-
-    return token_id
-
-
 @pytest.fixture(scope='module')
-def setup_offer(erc721_marketplace, erc721_collection_mock, minted_and_approved_token_id, payment_token, offeror):
+def setup_offer(
+        erc721_marketplace_mock,
+        erc721_collection_mock,
+        erc721_collection_mint_with_approval,
+        payment_token,
+        offeror
+):
     def setup_offer_(status: OfferStatus = OfferStatus.ACTIVE):
-        erc721_marketplace.createOffer(
+        erc721_marketplace_mock.createOffer(
             erc721_collection_mock,
-            minted_and_approved_token_id,
+            erc721_collection_mint_with_approval,
             payment_token,
             OfferParams.price,
             OfferParams.expiration_time,
@@ -62,28 +54,28 @@ def setup_offer(erc721_marketplace, erc721_collection_mock, minted_and_approved_
         # start/end offer
         handle_offer_status(status)
 
-        return minted_and_approved_token_id
+        return erc721_collection_mint_with_approval
     return setup_offer_
 
 
 def test_create_offer_escrow_on(
         payment_token,
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         erc721_collection_mock,
         offeror
 ):
     """Test valid offer creation WITH storing offered payment tokens in escrow"""
-    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace.address)
+    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace_mock.address)
     initial_offeror_balance = payment_token.balanceOf(offeror.address)
 
     # set allowance
-    payment_token.approve(erc721_marketplace, OfferParams.price, {"from": offeror})
+    payment_token.approve(erc721_marketplace_mock, OfferParams.price, {"from": offeror})
 
     # create offer
-    tx = erc721_marketplace.createOffer(
+    tx = erc721_marketplace_mock.createOffer(
         erc721_collection_mock,
-        minted_and_approved_token_id,
+        erc721_collection_mint_with_approval,
         payment_token,
         OfferParams.price,
         OfferParams.expiration_time,
@@ -91,7 +83,7 @@ def test_create_offer_escrow_on(
     )
 
     # assert offer was created with correct data
-    offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
+    offer = erc721_marketplace_mock.getOffer(erc721_collection_mock, erc721_collection_mint_with_approval, offeror)
     assert offer[0] == payment_token.address
     assert offer[1] == offeror
     assert offer[2] == OfferParams.price
@@ -101,35 +93,35 @@ def test_create_offer_escrow_on(
     assert tx.events["ERC721OfferCreated"] is not None
     assert tx.events["ERC721OfferCreated"]["offeror"] == offeror
     assert tx.events["ERC721OfferCreated"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ERC721OfferCreated"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721OfferCreated"]["tokenId"] == erc721_collection_mint_with_approval
     assert tx.events["ERC721OfferCreated"]["paymentToken"] == payment_token.address
     assert tx.events["ERC721OfferCreated"]["price"] == OfferParams.price
     assert tx.events["ERC721OfferCreated"]["expirationTime"] == OfferParams.expiration_time
 
     # check if payment tokens were stored in escrow
-    assert payment_token.balanceOf(erc721_marketplace.address) == initial_marketplace_balance + OfferParams.price
+    assert payment_token.balanceOf(erc721_marketplace_mock.address) == initial_marketplace_balance + OfferParams.price
     assert payment_token.balanceOf(offeror.address) == initial_offeror_balance - OfferParams.price
 
 
 def test_create_offer_escrow_off(
         payment_token,
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         erc721_collection_mock,
         offeror,
         token_owner
 ):
     """Test valid offer creation WITHOUT storing offered payment tokens in escrow"""
     initial_token_owner_balance = payment_token.balanceOf(token_owner.address)
-    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace.address)
+    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace_mock.address)
     initial_offeror_balance = payment_token.balanceOf(offeror.address)
 
-    erc721_marketplace.updateEscrowOfferPaymentTokens(False)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(False)
 
     # create offer
-    erc721_marketplace.createOffer(
+    erc721_marketplace_mock.createOffer(
         erc721_collection_mock,
-        minted_and_approved_token_id,
+        erc721_collection_mint_with_approval,
         payment_token,
         OfferParams.price,
         OfferParams.expiration_time,
@@ -137,7 +129,7 @@ def test_create_offer_escrow_off(
     )
 
     # assert offer was created with correct data
-    offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
+    offer = erc721_marketplace_mock.getOffer(erc721_collection_mock, erc721_collection_mint_with_approval, offeror)
     assert offer[0] == payment_token.address
     assert offer[1] == offeror
     assert offer[2] == OfferParams.price
@@ -145,13 +137,13 @@ def test_create_offer_escrow_off(
 
     # check if payment tokens were NOT stored in escrow
     assert payment_token.balanceOf(token_owner.address) == initial_token_owner_balance
-    assert payment_token.balanceOf(erc721_marketplace.address) == initial_marketplace_balance
+    assert payment_token.balanceOf(erc721_marketplace_mock.address) == initial_marketplace_balance
     assert payment_token.balanceOf(offeror.address) == initial_offeror_balance
 
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_create_offer_invalid_payment_token(
-        erc721_marketplace,
+        erc721_marketplace_mock,
         erc721_collection_mock,
         offeror,
         escrow_offer_payment_tokens
@@ -160,11 +152,11 @@ def test_create_offer_invalid_payment_token(
     token_id = 1
     payment_token = ZERO_ADDRESS
 
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # try to create offer
     with reverts('MarketplaceBase: payment token is not enabled'):
-        erc721_marketplace.createOffer(
+        erc721_marketplace_mock.createOffer(
             erc721_collection_mock,
             token_id,
             payment_token,
@@ -176,7 +168,7 @@ def test_create_offer_invalid_payment_token(
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_create_offer_invalid_nft_contract(
-        erc721_marketplace,
+        erc721_marketplace_mock,
         payment_token,
         erc1155_collection_mock,
         offeror,
@@ -185,11 +177,11 @@ def test_create_offer_invalid_nft_contract(
     """Test offer creation with invalid nft contract address (not ERC721 standard)"""
     token_id = 1
 
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # try to create offer
     with reverts('ERC721Marketplace: NFT is not ERC721'):
-        erc721_marketplace.createOffer(
+        erc721_marketplace_mock.createOffer(
             erc1155_collection_mock,
             token_id,
             payment_token,
@@ -201,8 +193,8 @@ def test_create_offer_invalid_nft_contract(
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_create_offer_invalid_expiration_time(
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         payment_token,
         erc721_collection_mock,
         offeror,
@@ -211,13 +203,13 @@ def test_create_offer_invalid_expiration_time(
     """Test offer creation with invalid expiration time (in the past)"""
     expiration_time = chain.time() - (60 * 60)  # offer expired 1 hour ago
 
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # try to create offer
     with reverts('MarketplaceBase: invalid expiration time'):
-        erc721_marketplace.createOffer(
+        erc721_marketplace_mock.createOffer(
             erc721_collection_mock,
-            minted_and_approved_token_id,
+            erc721_collection_mint_with_approval,
             payment_token,
             OfferParams.price,
             expiration_time,
@@ -227,8 +219,8 @@ def test_create_offer_invalid_expiration_time(
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_create_offer_on_listed_nft(
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         payment_token,
         erc721_collection_mock,
         offeror,
@@ -240,12 +232,12 @@ def test_create_offer_on_listed_nft(
     price = 100
     starting_time = chain.time() + (60 * 60)
 
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # create listing
-    erc721_marketplace.createListing(
+    erc721_marketplace_mock.createListing(
         erc721_collection_mock,
-        minted_and_approved_token_id,
+        erc721_collection_mint_with_approval,
         payment_token,
         price,
         starting_time,
@@ -259,8 +251,8 @@ def test_create_offer_on_listed_nft(
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_create_offer_twice(
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         payment_token,
         erc721_collection_mock,
         offeror,
@@ -268,10 +260,10 @@ def test_create_offer_twice(
         setup_offer
 ):
     """Test creating two same offers on the same NFT"""
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # set allowance
-    payment_token.approve(erc721_marketplace, OfferParams.price, {"from": offeror})
+    payment_token.approve(erc721_marketplace_mock, OfferParams.price, {"from": offeror})
 
     # create listing
     setup_offer()
@@ -291,8 +283,8 @@ def test_create_offer_twice(
     ]
 )
 def test_cancel_offer(
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         payment_token,
         erc721_collection_mock,
         offeror,
@@ -301,28 +293,32 @@ def test_cancel_offer(
         expired_offer
 ):
     """Test canceling offer WITH and WITHOUT storing offered payment tokens in escrow"""
-    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace.address)
+    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace_mock.address)
     initial_offeror_balance = payment_token.balanceOf(offeror.address)
 
     # turn on/off storing payment tokens in escrow
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     if escrow_offer_payment_tokens:
         # set allowance
-        payment_token.approve(erc721_marketplace, OfferParams.price, {"from": offeror})
+        payment_token.approve(erc721_marketplace_mock, OfferParams.price, {"from": offeror})
 
     # create offer
     setup_offer(expired_offer)
 
     # cancel offer
-    tx = erc721_marketplace.cancelOffer(erc721_collection_mock, minted_and_approved_token_id, {'from': offeror})
+    tx = erc721_marketplace_mock.cancelOffer(
+        erc721_collection_mock,
+        erc721_collection_mint_with_approval,
+        {'from': offeror}
+    )
 
     # check if payment tokens were returned from escrow
-    assert payment_token.balanceOf(erc721_marketplace.address) == initial_marketplace_balance
+    assert payment_token.balanceOf(erc721_marketplace_mock.address) == initial_marketplace_balance
     assert payment_token.balanceOf(offeror.address) == initial_offeror_balance
 
     # check offer existence
-    offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
+    offer = erc721_marketplace_mock.getOffer(erc721_collection_mock, erc721_collection_mint_with_approval, offeror)
     assert offer[0] == ZERO_ADDRESS
     assert offer[1] == ZERO_ADDRESS
     assert offer[2] == 0
@@ -332,7 +328,7 @@ def test_cancel_offer(
     assert tx.events["ERC721OfferCanceled"] is not None
     assert tx.events["ERC721OfferCanceled"]["offeror"] == offeror
     assert tx.events["ERC721OfferCanceled"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ERC721OfferCanceled"]["tokenId"] == minted_and_approved_token_id
+    assert tx.events["ERC721OfferCanceled"]["tokenId"] == erc721_collection_mint_with_approval
 
 
 @pytest.mark.parametrize(
@@ -345,8 +341,8 @@ def test_cancel_offer(
     ]
 )
 def test_cancel_offer_after_escrow_update(
-        minted_and_approved_token_id,
-        erc721_marketplace,
+        erc721_collection_mint_with_approval,
+        erc721_marketplace_mock,
         payment_token,
         erc721_collection_mock,
         offeror,
@@ -355,31 +351,31 @@ def test_cancel_offer_after_escrow_update(
         expired_offer
 ):
     """Test canceling offer AFTER storing offered payment tokens in escrow was tuned ON/OFF"""
-    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace.address)
+    initial_marketplace_balance = payment_token.balanceOf(erc721_marketplace_mock.address)
     initial_offeror_balance = payment_token.balanceOf(offeror.address)
 
     # turn on/off storing payment tokens in escrow
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     if escrow_offer_payment_tokens:
         # set allowance
-        payment_token.approve(erc721_marketplace, OfferParams.price, {"from": offeror})
+        payment_token.approve(erc721_marketplace_mock, OfferParams.price, {"from": offeror})
 
     # create offer
     setup_offer(expired_offer)
 
     # turn off/on storing payment tokens in escrow
-    erc721_marketplace.updateEscrowOfferPaymentTokens(not escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(not escrow_offer_payment_tokens)
 
     # cancel offer
-    erc721_marketplace.cancelOffer(erc721_collection_mock, minted_and_approved_token_id, {'from': offeror})
+    erc721_marketplace_mock.cancelOffer(erc721_collection_mock, erc721_collection_mint_with_approval, {'from': offeror})
 
     # check if payment tokens were returned from escrow
-    assert payment_token.balanceOf(erc721_marketplace.address) == initial_marketplace_balance
+    assert payment_token.balanceOf(erc721_marketplace_mock.address) == initial_marketplace_balance
     assert payment_token.balanceOf(offeror.address) == initial_offeror_balance
 
     # check offer existence
-    offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
+    offer = erc721_marketplace_mock.getOffer(erc721_collection_mock, erc721_collection_mint_with_approval, offeror)
     assert offer[0] == ZERO_ADDRESS
     assert offer[1] == ZERO_ADDRESS
     assert offer[2] == 0
@@ -387,22 +383,26 @@ def test_cancel_offer_after_escrow_update(
 
 
 def test_canceling_non_existent_offer(
-        erc721_marketplace,
+        erc721_marketplace_mock,
         erc721_collection_mock,
-        minted_and_approved_token_id,
+        erc721_collection_mint_with_approval,
         offeror
 ):
     """Test canceling offer that does NOT exist"""
     # cancel offer
     with reverts("ERC721Marketplace: offer does not exists"):
-        erc721_marketplace.cancelOffer(erc721_collection_mock, minted_and_approved_token_id, {'from': offeror})
+        erc721_marketplace_mock.cancelOffer(
+            erc721_collection_mock,
+            erc721_collection_mint_with_approval,
+            {'from': offeror}
+        )
 
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_accept_offer(
-        erc721_marketplace,
+        erc721_marketplace_mock,
         erc721_collection_mock,
-        minted_and_approved_token_id,
+        erc721_collection_mint_with_approval,
         payment_token,
         owner,
         token_owner,
@@ -414,17 +414,17 @@ def test_accept_offer(
     initial_platform_balance = payment_token.balanceOf(owner.address)
     initial_owner_balance = payment_token.balanceOf(token_owner.address)
     initial_offeror_balance = payment_token.balanceOf(offeror.address)
-    fee_amount = math.floor(OfferParams.price * erc721_marketplace.getOfferFee() / 1000)
+    fee_amount = math.floor(OfferParams.price * erc721_marketplace_mock.getOfferFee() / 1000)
 
     # turn on/off storing payment tokens in escrow
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # set allowance
-    payment_token.approve(erc721_marketplace, OfferParams.price, {"from": offeror})
+    payment_token.approve(erc721_marketplace_mock, OfferParams.price, {"from": offeror})
 
     token_id = setup_offer()
 
-    tx = erc721_marketplace.acceptOffer(erc721_collection_mock, token_id, {"from": token_owner})
+    tx = erc721_marketplace_mock.acceptOffer(erc721_collection_mock, token_id, offeror, {"from": token_owner})
 
     # check balances
     assert payment_token.balanceOf(owner.address) == initial_platform_balance + fee_amount
@@ -444,14 +444,14 @@ def test_accept_offer(
     assert tx.events["ERC721OfferAccepted"]["paymentToken"] == payment_token
 
     # check offer existence
-    offer = erc721_marketplace.getOffer(erc721_collection_mock, minted_and_approved_token_id)
+    offer = erc721_marketplace_mock.getOffer(erc721_collection_mock, erc721_collection_mint_with_approval, offeror)
     assert offer[0] == ZERO_ADDRESS
     assert offer[1] == ZERO_ADDRESS
     assert offer[2] == 0
     assert offer[3] == 0
 
     # check listing existence
-    listing = erc721_marketplace.getListing(erc721_collection_mock, minted_and_approved_token_id)
+    listing = erc721_marketplace_mock.getListing(erc721_collection_mock, erc721_collection_mint_with_approval)
     assert listing[0] == ZERO_ADDRESS
     assert listing[1] == ZERO_ADDRESS
     assert listing[2] == 0
@@ -460,25 +460,26 @@ def test_accept_offer(
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_accept_nonexistent_offer(
-        erc721_marketplace,
+        erc721_marketplace_mock,
         erc721_collection_mock,
         token_owner,
+        offeror,
         escrow_offer_payment_tokens
 ):
     """Test accepting an offer that doesn't exist"""
     # turn on/off storing payment tokens in escrow
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     token_id = 1
 
     # try to accept offer
     with reverts("ERC721Marketplace: offer does not exists"):
-        erc721_marketplace.acceptOffer(erc721_collection_mock, token_id, {"from": token_owner})
+        erc721_marketplace_mock.acceptOffer(erc721_collection_mock, token_id, offeror, {"from": token_owner})
 
 
 @pytest.mark.parametrize('escrow_offer_payment_tokens', [True, False])
 def test_accept_expired_offer(
-        erc721_marketplace,
+        erc721_marketplace_mock,
         erc721_collection_mock,
         offeror,
         token_owner,
@@ -488,14 +489,14 @@ def test_accept_expired_offer(
 ):
     """Test accepting an offer that doesn't exist"""
     # turn on/off storing payment tokens in escrow
-    erc721_marketplace.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
+    erc721_marketplace_mock.updateEscrowOfferPaymentTokens(escrow_offer_payment_tokens)
 
     # set allowance
-    payment_token.approve(erc721_marketplace, OfferParams.price, {"from": offeror})
+    payment_token.approve(erc721_marketplace_mock, OfferParams.price, {"from": offeror})
 
     token_id = setup_offer(OfferStatus.EXPIRED)
 
     # try to accept offer
     with reverts("ERC721Marketplace: offer is expired"):
-        erc721_marketplace.acceptOffer(erc721_collection_mock, token_id, {"from": token_owner})
+        erc721_marketplace_mock.acceptOffer(erc721_collection_mock, token_id, offeror, {"from": token_owner})
 
