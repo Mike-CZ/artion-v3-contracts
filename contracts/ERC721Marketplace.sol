@@ -202,7 +202,8 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
             tokenId,
             paymentToken,
             price,
-            expirationTime
+            expirationTime,
+            _escrowOfferPaymentTokens
         );
     }
 

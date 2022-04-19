@@ -45,10 +45,11 @@ interface IERC721Marketplace is IMarketplaceBase {
     event ERC721OfferCreated(
         address indexed offeror,
         address indexed nftAddress,
-        uint256 tokenId,
+        uint256 indexed tokenId,
         address paymentToken,
         uint256 price,
-        uint256 expirationTime
+        uint256 expirationTime,
+        bool isPayTokenInEscrow
     );
 
     event ERC721OfferCanceled(
