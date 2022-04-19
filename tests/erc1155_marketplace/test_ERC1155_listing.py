@@ -376,11 +376,9 @@ def test_cancel_listing(
     ) == initial_marketplace_token_amount - ListingParams.token_amount
 
     # validate listing successfully deleted
-    data = erc1155_marketplace_mock.getListing(
+    assert erc1155_marketplace_mock.hasListing(
         erc1155_collection_mock, ListingParams.token_id, seller, ListingParams.listing_id
-    )
-    listing = ERC1155Listing(Listing(*data[0]), *data[1:])
-    assert not listing.exists()
+    ) is False
 
     # check event
     assert tx.events["ERC1155ListingCanceled"] is not None
@@ -470,11 +468,9 @@ def test_buy_listed_nft(
     assert tx.events["ERC1155ListedItemSold"]["paymentToken"] == payment_token.address
 
     # validate listing successfully deleted
-    data = erc1155_marketplace_mock.getListing(
+    assert erc1155_marketplace_mock.hasListing(
         erc1155_collection_mock, ListingParams.token_id, seller, ListingParams.listing_id
-    )
-    listing = ERC1155Listing(Listing(*data[0]), *data[1:])
-    assert not listing.exists()
+    ) is False
 
 
 def test_buy_listed_nft_partially(

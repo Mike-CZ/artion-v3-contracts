@@ -1,9 +1,14 @@
 import pytest
 from enum import Enum
 from dataclasses import dataclass
+from brownie.network.contract import ProjectContract
+from brownie.network.account import LocalAccount
+from typing import Callable
+from utils.structs import ERC1155Auction, Auction, HighestBid
 from brownie import reverts, chain, accounts, ZERO_ADDRESS
 from brownie.test import given, strategy
 from utils.helpers import calculate_auction_fee, calculate_royalty_fee
+from hypothesis import settings
 
 
 @dataclass(frozen=True)
@@ -33,26 +38,26 @@ class AuctionStatus(Enum):
 
 
 @pytest.fixture(scope="session")
-def seller(user):
+def seller(user: LocalAccount) -> LocalAccount:
     return user
 
 
 @pytest.fixture(scope="session")
-def bidder(user_2):
+def bidder(user_2: LocalAccount) -> LocalAccount:
     return user_2
 
 
 @pytest.fixture(scope="session")
-def outbidder(user_3):
+def outbidder(user_3: LocalAccount) -> LocalAccount:
     return user_3
 
 
 @pytest.fixture(scope="session")
-def royalty_recipient(user_4):
+def royalty_recipient(user_4: LocalAccount) -> LocalAccount:
     return user_4
 
 
-def handle_auction_status(status: AuctionStatus):
+def handle_auction_status(status: AuctionStatus) -> None:
     if status is not AuctionStatus.NOT_STARTED:
         chain.sleep(
             (AuctionParams.end_time if status is AuctionStatus.ENDED else AuctionParams.start_time) - chain.time()
@@ -62,14 +67,14 @@ def handle_auction_status(status: AuctionStatus):
 
 @pytest.fixture(scope='module')
 def setup_auction(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        royalty_registry,
-        royalty_recipient,
-        erc20_mock,
-        seller
-):
-    def setup_auction_(is_min_bid_reserve_price: bool = False, status: AuctionStatus = AuctionStatus.STARTED):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_registry: ProjectContract,
+        royalty_recipient: LocalAccount,
+        payment_token: ProjectContract,
+        seller: LocalAccount
+) -> Callable:
+    def setup_auction_(is_min_bid_reserve_price: bool = False, status: AuctionStatus = AuctionStatus.STARTED) -> None:
         # mint token and set royalty
         erc1155_collection_mock.mint(seller, AuctionParams.token_id, 50, '')
         royalty_registry.setTokenRoyalty(
@@ -87,7 +92,7 @@ def setup_auction(
             AuctionParams.token_amount,
             AuctionParams.auction_id,
             seller,
-            erc20_mock,
+            payment_token,
             AuctionParams.reserve_price,
             AuctionParams.start_time,
             AuctionParams.end_time,
@@ -100,20 +105,20 @@ def setup_auction(
 
 @pytest.fixture(scope='module')
 def setup_auction_with_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        erc20_mock,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> Callable:
     def setup_auction_with_bid_(
             status: AuctionStatus = AuctionStatus.STARTED,
             bid_amount: int = HighestBidParams.bid_amount
-    ):
+    ) -> None:
         # setup with started status to be able to place bid
         setup_auction(status=AuctionStatus.STARTED)
-        erc20_mock.approveInternal(bidder, erc1155_marketplace_mock, bid_amount)
+        payment_token.approveInternal(bidder, erc1155_marketplace_mock, bid_amount)
         erc1155_marketplace_mock.placeBid(
             erc1155_collection_mock,
             AuctionParams.token_id,
@@ -129,12 +134,12 @@ def setup_auction_with_bid(
 
 
 def test_create_auction(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc1155_collection_mint_with_approval,
-        erc20_mock,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        erc1155_collection_mint_with_approval: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test auction creation"""
     token_amount = 5
     auction_token_amount = 2
@@ -155,7 +160,7 @@ def test_create_auction(
         token_id,
         auction_token_amount,
         AuctionParams.auction_id,
-        erc20_mock,
+        payment_token,
         reserve_price,
         start_time,
         end_time,
@@ -174,26 +179,29 @@ def test_create_auction(
     assert tx.events['ERC1155AuctionCreated']['auctionId'] == AuctionParams.auction_id
     assert tx.events['ERC1155AuctionCreated']['owner'] == seller.address
     assert tx.events['ERC1155AuctionCreated']['tokenAmount'] == auction_token_amount
-    assert tx.events['ERC1155AuctionCreated']['payToken'] == erc20_mock.address
+    assert tx.events['ERC1155AuctionCreated']['payToken'] == payment_token.address
 
     # assert auction created
-    auction = erc1155_marketplace_mock.getAuction(erc1155_collection_mock, token_id, seller, AuctionParams.auction_id)
-    assert auction[0][0] == seller.address
-    assert auction[0][1] == erc20_mock.address
-    assert auction[0][2] == reserve_price
-    assert auction[0][3] == is_min_bid_reserve_price
-    assert auction[0][4] == start_time
-    assert auction[0][5] == end_time
-    assert auction[1] == auction_token_amount
+    data = erc1155_marketplace_mock.getAuction(erc1155_collection_mock, token_id, seller, AuctionParams.auction_id)
+    erc1155_auction = ERC1155Auction(Auction(*data[0]), *data[1:])
+
+    assert erc1155_auction.exists()
+    assert erc1155_auction.auction.owner == seller.address
+    assert erc1155_auction.auction.payment_token == payment_token.address
+    assert erc1155_auction.auction.reserve_price == reserve_price
+    assert erc1155_auction.auction.is_min_bid_reserve_price == is_min_bid_reserve_price
+    assert erc1155_auction.auction.start_time == start_time
+    assert erc1155_auction.auction.end_time == end_time
+    assert erc1155_auction.token_amount == auction_token_amount
 
 
 def test_create_action_invalid_token_type(
-        erc1155_marketplace_mock,
-        erc721_collection_mock,
-        erc721_collection_mint,
-        erc20_mock,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc721_collection_mock: ProjectContract,
+        erc721_collection_mint: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test auction creation with invalid token type"""
     token_id = erc721_collection_mint(seller)
     with reverts('ERC1155Marketplace: NFT not ERC1155'):
@@ -202,7 +210,7 @@ def test_create_action_invalid_token_type(
             token_id,
             1,
             AuctionParams.auction_id,
-            erc20_mock,
+            payment_token,
             AuctionParams.reserve_price,
             AuctionParams.start_time,
             AuctionParams.end_time,
@@ -212,13 +220,14 @@ def test_create_action_invalid_token_type(
 
 
 @given(token_address=strategy('address'))
+@settings(max_examples=1)
 def test_create_action_invalid_payment_token(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc1155_collection_mint_with_approval,
-        token_address,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        erc1155_collection_mint_with_approval: Callable,
+        token_address: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test auction creation with invalid payment token"""
     token_id = erc1155_collection_mint_with_approval(seller, AuctionParams.token_amount)
     with reverts('MarketplaceBase: payment token is not enabled'):
@@ -237,12 +246,12 @@ def test_create_action_invalid_payment_token(
 
 
 def test_create_action_invalid_time_maximum_duration(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc1155_collection_mint_with_approval,
-        erc20_mock,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        erc1155_collection_mint_with_approval: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test auction creation with invalid time - maximum duration"""
     token_id = erc1155_collection_mint_with_approval(seller, AuctionParams.token_amount)
     with reverts('MarketplaceBase: Auction time exceeds maximum duration'):
@@ -251,7 +260,7 @@ def test_create_action_invalid_time_maximum_duration(
             token_id,
             AuctionParams.token_amount,
             AuctionParams.auction_id,
-            erc20_mock,
+            payment_token,
             AuctionParams.reserve_price,
             AuctionParams.start_time,
             AuctionParams.start_time + (erc1155_marketplace_mock.getMaximumAuctionDuration() + 1),
@@ -261,12 +270,12 @@ def test_create_action_invalid_time_maximum_duration(
 
 
 def test_create_action_invalid_time_minimum_duration(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc1155_collection_mint_with_approval,
-        erc20_mock,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        erc1155_collection_mint_with_approval: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test auction creation with invalid time - minimum duration"""
     token_id = erc1155_collection_mint_with_approval(seller, AuctionParams.token_amount)
     with reverts('MarketplaceBase: Auction time does not meet minimum duration'):
@@ -275,7 +284,7 @@ def test_create_action_invalid_time_minimum_duration(
             token_id,
             AuctionParams.token_amount,
             AuctionParams.auction_id,
-            erc20_mock,
+            payment_token,
             AuctionParams.reserve_price,
             AuctionParams.start_time,
             AuctionParams.start_time + (erc1155_marketplace_mock.getMinimumAuctionDuration() - 1),
@@ -285,12 +294,12 @@ def test_create_action_invalid_time_minimum_duration(
 
 
 def test_create_action_already_exists(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc20_mock,
-        setup_auction,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount
+) -> None:
     """Test auction creation when already started"""
     setup_auction()
     with reverts('MarketplaceBase: auction exists'):
@@ -299,7 +308,7 @@ def test_create_action_already_exists(
             AuctionParams.token_id,
             AuctionParams.token_amount,
             AuctionParams.auction_id,
-            erc20_mock,
+            payment_token,
             AuctionParams.reserve_price,
             AuctionParams.start_time,
             AuctionParams.end_time,
@@ -309,22 +318,22 @@ def test_create_action_already_exists(
 
 
 def test_place_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        erc20_mock,
-        setup_auction,
-        seller,
-        bidder
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
 ):
     """Test place bid"""
     setup_auction()
 
     bid_amount = 1
-    initial_bidder_balance = erc20_mock.balanceOf(bidder)
-    initial_marketplace_balance = erc20_mock.balanceOf(erc1155_marketplace_mock)
+    initial_bidder_balance = payment_token.balanceOf(bidder)
+    initial_marketplace_balance = payment_token.balanceOf(erc1155_marketplace_mock)
 
     # approve token
-    erc20_mock.approveInternal(bidder, erc1155_marketplace_mock, bid_amount)
+    payment_token.approveInternal(bidder, erc1155_marketplace_mock, bid_amount)
 
     # place bid
     tx = erc1155_marketplace_mock.placeBid(
@@ -332,9 +341,14 @@ def test_place_bid(
     )
 
     # assert bid exists
-    assert erc1155_marketplace_mock.getHighestBid(
+    data = erc1155_marketplace_mock.getHighestBid(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[:2] == (bidder.address, bid_amount)
+    )
+    highest_bid = HighestBid(*data)
+
+    assert highest_bid.exists()
+    assert highest_bid.bid_amount == bid_amount
+    assert highest_bid.bidder == bidder.address
 
     # asset event emitted correctly
     assert tx.events['ERC1155BidPlaced'] is not None
@@ -346,16 +360,16 @@ def test_place_bid(
     assert tx.events['ERC1155BidPlaced']['bid'] == bid_amount
 
     # assert tokens transferred
-    assert erc20_mock.balanceOf(bidder) == initial_bidder_balance - bid_amount
-    assert erc20_mock.balanceOf(erc1155_marketplace_mock) == initial_marketplace_balance + bid_amount
+    assert payment_token.balanceOf(bidder) == initial_bidder_balance - bid_amount
+    assert payment_token.balanceOf(erc1155_marketplace_mock) == initial_marketplace_balance + bid_amount
 
 
 def test_place_bid_auction_not_exist(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test place bid when auction does not exist"""
     with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.placeBid(
@@ -364,12 +378,12 @@ def test_place_bid_auction_not_exist(
 
 
 def test_place_bid_auction_not_started(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test place bid when auction has not started"""
     setup_auction(status=AuctionStatus.NOT_STARTED)
     with reverts('MarketplaceBase: auction not started'):
@@ -379,12 +393,12 @@ def test_place_bid_auction_not_started(
 
 
 def test_place_bid_auction_ended(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test place bid when auction has ended"""
     setup_auction(status=AuctionStatus.ENDED)
 
@@ -395,11 +409,11 @@ def test_place_bid_auction_ended(
 
 
 def test_place_bid_bidder_is_owner(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount
+) -> None:
     """Test place bid when bidder is owner"""
     setup_auction()
 
@@ -410,12 +424,12 @@ def test_place_bid_bidder_is_owner(
 
 
 def test_place_bid_below_reserve_price(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test place bid below reserve price"""
     setup_auction(is_min_bid_reserve_price=True)
 
@@ -431,23 +445,23 @@ def test_place_bid_below_reserve_price(
 
 
 def test_place_bid_outbid_highest_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        erc20_mock,
-        seller,
-        bidder,
-        outbidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount,
+        outbidder: LocalAccount
+) -> None:
     """Test outbidding the highest bid"""
     setup_auction_with_bid()
 
     bid_amount = HighestBidParams.bid_amount + 1
-    initial_previous_bidder_balance = erc20_mock.balanceOf(bidder)
-    initial_marketplace_balance = erc20_mock.balanceOf(erc1155_marketplace_mock)
+    initial_previous_bidder_balance = payment_token.balanceOf(bidder)
+    initial_marketplace_balance = payment_token.balanceOf(erc1155_marketplace_mock)
 
     # approve token
-    erc20_mock.approveInternal(outbidder, erc1155_marketplace_mock, bid_amount)
+    payment_token.approveInternal(outbidder, erc1155_marketplace_mock, bid_amount)
 
     # place bid
     tx = erc1155_marketplace_mock.placeBid(
@@ -460,8 +474,8 @@ def test_place_bid_outbid_highest_bid(
     )
 
     # assert tokens transferred
-    assert erc20_mock.balanceOf(bidder) == initial_previous_bidder_balance + HighestBidParams.bid_amount
-    assert erc20_mock.balanceOf(erc1155_marketplace_mock) \
+    assert payment_token.balanceOf(bidder) == initial_previous_bidder_balance + HighestBidParams.bid_amount
+    assert payment_token.balanceOf(erc1155_marketplace_mock) \
            == initial_marketplace_balance - HighestBidParams.bid_amount + bid_amount
 
     # asset event emitted correctly
@@ -475,12 +489,12 @@ def test_place_bid_outbid_highest_bid(
 
 
 def test_place_bid_below_previous_highest_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        outbidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        outbidder: LocalAccount
+) -> None:
     """Test placing bid below previous highest bid"""
     setup_auction_with_bid()
 
@@ -498,13 +512,13 @@ def test_place_bid_below_previous_highest_bid(
 
 
 def test_place_bid_below_min_bid_increment(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        owner,
-        seller,
-        outbidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        owner: LocalAccount,
+        seller: LocalAccount,
+        outbidder: LocalAccount
+) -> None:
     """Test placing bid below min bid increment"""
     setup_auction_with_bid()
 
@@ -526,18 +540,18 @@ def test_place_bid_below_min_bid_increment(
 
 
 def test_cancel_auction(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        erc20_mock,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test cancelling auction"""
     setup_auction_with_bid()
 
-    initial_bidder_amount = erc20_mock.balanceOf(bidder)
-    initial_marketplace_amount = erc20_mock.balanceOf(erc1155_marketplace_mock)
+    initial_bidder_amount = payment_token.balanceOf(bidder)
+    initial_marketplace_amount = payment_token.balanceOf(erc1155_marketplace_mock)
     initial_seller_token_amount = erc1155_collection_mock.balanceOf(seller, AuctionParams.token_id)
     initial_marketplace_token_amount = erc1155_collection_mock.balanceOf(
         erc1155_marketplace_mock, AuctionParams.token_id
@@ -548,8 +562,8 @@ def test_cancel_auction(
     )
 
     # assert payment tokens sent
-    assert erc20_mock.balanceOf(bidder) == initial_bidder_amount + HighestBidParams.bid_amount
-    assert erc20_mock.balanceOf(erc1155_marketplace_mock) == initial_marketplace_amount - HighestBidParams.bid_amount
+    assert payment_token.balanceOf(bidder) == initial_bidder_amount + HighestBidParams.bid_amount
+    assert payment_token.balanceOf(erc1155_marketplace_mock) == initial_marketplace_amount - HighestBidParams.bid_amount
 
     # assert tokens transferred
     assert erc1155_collection_mock.balanceOf(seller, AuctionParams.token_id) == \
@@ -573,17 +587,21 @@ def test_cancel_auction(
     assert tx.events['ERC1155BidRefunded']['bid'] == HighestBidParams.bid_amount
 
     # assert auction does not exist
-    assert erc1155_marketplace_mock.getAuction(
+    assert erc1155_marketplace_mock.hasAuction(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[0][0] == ZERO_ADDRESS
+    ) is False
 
     # assert bid does not exist
-    assert erc1155_marketplace_mock.getHighestBid(
+    assert erc1155_marketplace_mock.hasHighestBid(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[0] == ZERO_ADDRESS
+    ) is False
 
 
-def test_cancel_auction_action_not_exist(erc1155_marketplace_mock, erc1155_collection_mock, seller):
+def test_cancel_auction_action_not_exist(
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test cancelling auction when auction does not exist"""
     with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.cancelAuction(
@@ -592,11 +610,11 @@ def test_cancel_auction_action_not_exist(erc1155_marketplace_mock, erc1155_colle
 
 
 def test_cancel_auction_highest_bid_equal_reserve_price(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount
+) -> None:
     """Test cancelling auction when highest bid is equal reserve price"""
     setup_auction_with_bid(bid_amount=AuctionParams.reserve_price)
 
@@ -607,26 +625,26 @@ def test_cancel_auction_highest_bid_equal_reserve_price(
 
 
 def test_withdraw_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        erc20_mock,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test withdraw bid"""
     setup_auction_with_bid(status=AuctionStatus.ENDED)
 
-    initial_bidder_amount = erc20_mock.balanceOf(bidder)
-    initial_marketplace_amount = erc20_mock.balanceOf(erc1155_marketplace_mock)
+    initial_bidder_amount = payment_token.balanceOf(bidder)
+    initial_marketplace_amount = payment_token.balanceOf(erc1155_marketplace_mock)
 
     tx = erc1155_marketplace_mock.withdrawBid(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id, {'from': bidder}
     )
 
     # assert payment tokens sent
-    assert erc20_mock.balanceOf(bidder) == initial_bidder_amount + HighestBidParams.bid_amount
-    assert erc20_mock.balanceOf(erc1155_marketplace_mock) == initial_marketplace_amount - HighestBidParams.bid_amount
+    assert payment_token.balanceOf(bidder) == initial_bidder_amount + HighestBidParams.bid_amount
+    assert payment_token.balanceOf(erc1155_marketplace_mock) == initial_marketplace_amount - HighestBidParams.bid_amount
 
     # assert event emitted
     assert tx.events['ERC1155BidWithdrawn'] is not None
@@ -638,17 +656,17 @@ def test_withdraw_bid(
     assert tx.events['ERC1155BidWithdrawn']['bid'] == HighestBidParams.bid_amount
 
     # assert bid does not exist
-    assert erc1155_marketplace_mock.getHighestBid(
+    assert erc1155_marketplace_mock.hasHighestBid(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[0] == ZERO_ADDRESS
+    ) is False
 
 
 def test_withdraw_bid_not_bidder(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount
+) -> None:
     """Test withdraw bid not bidder"""
     setup_auction_with_bid(status=AuctionStatus.ENDED)
 
@@ -659,12 +677,12 @@ def test_withdraw_bid_not_bidder(
 
 
 def test_withdraw_bid_auction_not_ended(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test withdraw bid before auction ended"""
     setup_auction_with_bid(bid_amount=AuctionParams.reserve_price)
 
@@ -675,12 +693,12 @@ def test_withdraw_bid_auction_not_ended(
 
 
 def test_withdraw_bid_before_delay(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test withdraw bid before withdraw delay"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price)
 
@@ -691,24 +709,24 @@ def test_withdraw_bid_before_delay(
 
 
 def test_finish_auction(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        erc20_mock,
-        seller,
-        bidder,
-        royalty_recipient,
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        payment_token: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount,
+        royalty_recipient: LocalAccount
+) -> None:
     """Test finish auction"""
     price = AuctionParams.reserve_price + 100  # to make sure fee is calculated from price - reserve_price
 
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=price)
 
     fee_recipient = accounts.at(erc1155_marketplace_mock.getFeeRecipient())
-    initial_fee_recipient_amount = erc20_mock.balanceOf(fee_recipient)
-    initial_royalty_recipient_amount = erc20_mock.balanceOf(royalty_recipient)
-    initial_seller_amount = erc20_mock.balanceOf(seller)
-    initial_marketplace_amount = erc20_mock.balanceOf(erc1155_marketplace_mock)
+    initial_fee_recipient_amount = payment_token.balanceOf(fee_recipient)
+    initial_royalty_recipient_amount = payment_token.balanceOf(royalty_recipient)
+    initial_seller_amount = payment_token.balanceOf(seller)
+    initial_marketplace_amount = payment_token.balanceOf(erc1155_marketplace_mock)
 
     initial_bidder_token_amount = erc1155_collection_mock.balanceOf(bidder, AuctionParams.token_id)
     initial_marketplace_token_amount = erc1155_collection_mock.balanceOf(
@@ -723,10 +741,10 @@ def test_finish_auction(
     )
 
     # assert payment tokens sent
-    assert erc20_mock.balanceOf(fee_recipient) == initial_fee_recipient_amount + fee
-    assert erc20_mock.balanceOf(royalty_recipient) == initial_royalty_recipient_amount + royalty_fee
-    assert erc20_mock.balanceOf(seller) == initial_seller_amount + price - fee - royalty_fee
-    assert erc20_mock.balanceOf(erc1155_marketplace_mock) == initial_marketplace_amount - price
+    assert payment_token.balanceOf(fee_recipient) == initial_fee_recipient_amount + fee
+    assert payment_token.balanceOf(royalty_recipient) == initial_royalty_recipient_amount + royalty_fee
+    assert payment_token.balanceOf(seller) == initial_seller_amount + price - fee - royalty_fee
+    assert payment_token.balanceOf(erc1155_marketplace_mock) == initial_marketplace_amount - price
 
     # assert tokens transferred
     assert erc1155_collection_mock.balanceOf(bidder, AuctionParams.token_id) == \
@@ -741,28 +759,28 @@ def test_finish_auction(
     assert tx.events['ERC1155AuctionFinished']['tokenId'] == AuctionParams.token_id
     assert tx.events['ERC1155AuctionFinished']['auctionId'] == AuctionParams.auction_id
     assert tx.events['ERC1155AuctionFinished']['winner'] == bidder.address
-    assert tx.events['ERC1155AuctionFinished']['payToken'] == erc20_mock.address
+    assert tx.events['ERC1155AuctionFinished']['payToken'] == payment_token.address
     assert tx.events['ERC1155AuctionFinished']['tokenAmount'] == AuctionParams.token_amount
     assert tx.events['ERC1155AuctionFinished']['winningBid'] == price
 
     # assert auction does not exist
-    assert erc1155_marketplace_mock.getAuction(
+    assert erc1155_marketplace_mock.hasAuction(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[0][0] == ZERO_ADDRESS
+    ) is False
 
     # assert bid does not exist
-    assert erc1155_marketplace_mock.getHighestBid(
+    assert erc1155_marketplace_mock.hasHighestBid(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[0] == ZERO_ADDRESS
+    ) is False
 
 
 def test_finish_auction_from_bidder(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test finish auction from bidder"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price)
     erc1155_marketplace_mock.finishAuction(
@@ -771,11 +789,11 @@ def test_finish_auction_from_bidder(
 
 
 def test_finish_auction_not_exist(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test finish auction when not exist"""
     with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.finishAuction(
@@ -784,12 +802,12 @@ def test_finish_auction_not_exist(
 
 
 def test_finish_auction_not_ended(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test finish auction when not ended"""
     setup_auction_with_bid(bid_amount=AuctionParams.reserve_price)
     with reverts('MarketplaceBase: auction not ended'):
@@ -799,12 +817,12 @@ def test_finish_auction_not_ended(
 
 
 def test_finish_auction_without_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test finish auction when bid does not exist"""
     setup_auction(status=AuctionStatus.ENDED)
     with reverts('MarketplaceBase: highest bid not exist'):
@@ -814,12 +832,12 @@ def test_finish_auction_without_bid(
 
 
 def test_finish_auction_not_owner_or_bidder(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        outbidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        outbidder: LocalAccount
+) -> None:
     """Test finish auction when not owner or bidder"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price)
     with reverts('MarketplaceBase: not auction or highest bid owner'):
@@ -829,11 +847,11 @@ def test_finish_auction_not_owner_or_bidder(
 
 
 def test_finish_auction_low_bid(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount
+) -> None:
     """Test finish auction when bid is below reserve price"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price - 1)
     with reverts('MarketplaceBase: highest bid below reserve price'):
@@ -843,11 +861,11 @@ def test_finish_auction_low_bid(
 
 
 def test_finish_auction_below_reserve_price(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount
+) -> None:
     """Test finish auction below reserve price"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price - 1)
     erc1155_marketplace_mock.finishAuctionBelowReservePrice(
@@ -856,12 +874,12 @@ def test_finish_auction_below_reserve_price(
 
 
 def test_finish_auction_below_reserve_price_not_owner(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller,
-        bidder
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount,
+        bidder: LocalAccount
+) -> None:
     """Test finish auction below reserve price when not auction owner"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price - 1)
     with reverts('MarketplaceBase: not owner'):
@@ -871,11 +889,11 @@ def test_finish_auction_below_reserve_price_not_owner(
 
 
 def test_finish_auction_below_reserve_price_above_reserve_price(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction_with_bid,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction_with_bid: Callable,
+        seller: LocalAccount
+) -> None:
     """Test finish auction below reserve price when bid is above reserve price"""
     setup_auction_with_bid(status=AuctionStatus.ENDED, bid_amount=AuctionParams.reserve_price + 1)
     with reverts('MarketplaceBase: highest bid above reserve price'):
@@ -885,11 +903,11 @@ def test_finish_auction_below_reserve_price_above_reserve_price(
 
 
 def test_update_auction_reserve_price(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount
+) -> None:
     """Test update auction reserve price"""
     setup_auction()
 
@@ -900,9 +918,12 @@ def test_update_auction_reserve_price(
     )
 
     # assert reserve price changed
-    assert erc1155_marketplace_mock.getAuction(
+    data = erc1155_marketplace_mock.getAuction(
         erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id
-    )[0][2] == reserve_price
+    )
+    auction = Auction(*data[0])
+
+    assert auction.reserve_price == reserve_price
 
     # assert event emitted
     assert tx.events['ERC1155AuctionReservePriceUpdated'] is not None
@@ -914,10 +935,10 @@ def test_update_auction_reserve_price(
 
 
 def test_update_auction_reserve_price_auction_not_exist(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        seller: LocalAccount
+) -> None:
     """Test update auction reserve price when auction does not exist"""
     with reverts('MarketplaceBase: auction not exists'):
         erc1155_marketplace_mock.updateAuctionReservePrice(
@@ -930,11 +951,11 @@ def test_update_auction_reserve_price_auction_not_exist(
 
 
 def test_update_auction_reserve_price_above_reserve_price(
-        erc1155_marketplace_mock,
-        erc1155_collection_mock,
-        setup_auction,
-        seller
-):
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        seller: LocalAccount
+) -> None:
     """Test update auction reserve price when new reserve price is above previous"""
     setup_auction()
 
