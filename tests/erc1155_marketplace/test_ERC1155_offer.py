@@ -6,7 +6,6 @@ from brownie.network.contract import ProjectContract
 from brownie.network.account import LocalAccount
 from typing import Callable
 from utils.structs import ERC1155Offer, Offer
-from utils.constants import TOMB_TOKEN
 from utils.helpers import calculate_offer_fee, calculate_royalty_fee
 from brownie.test import given, strategy
 from hypothesis import settings
