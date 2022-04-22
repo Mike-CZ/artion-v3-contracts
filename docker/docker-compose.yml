@@ -20,7 +20,7 @@ services:
     environment:
       - DISPLAY=$DISPLAY # for X11 forwarding
     volumes:
-      - ../:/home/user/artion
+      - ../:/home/user/marketplace
       - ./.data/brownie:/home/user/.brownie
       - ./.data/solc:/home/user/.solc
       - ./.data/solcx:/home/user/.solcx

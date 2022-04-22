@@ -2,14 +2,14 @@ networks:
     default: development
 
 dependencies:
-    - OpenZeppelin/openzeppelin-contracts@4.5.0-rc.0
-    - OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0-rc.0
+    - OpenZeppelin/openzeppelin-contracts@4.5.0
+    - OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0
 compiler:
     solc:
-        version: 0.8.10
+        version: 0.8.12
         remappings:
-            - "openzeppelin=OpenZeppelin/openzeppelin-contracts@4.5.0-rc.0"
-            - "openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0-rc.0"
+            - "openzeppelin=OpenZeppelin/openzeppelin-contracts@4.5.0"
+            - "openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.5.0"
 
 reports:
     exclude_contracts:

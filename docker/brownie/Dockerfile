@@ -1,4 +1,4 @@
-FROM python:3.7-slim
+FROM python:3.9-slim
 
 ARG PUID=1000
 ENV PUID ${PUID}
@@ -12,7 +12,7 @@ RUN apt-get update \
     && apt-get install -y build-essential tk
 
 # Install brownie
-RUN python3 -m pip install --upgrade pip && pip3 install eth-brownie==1.17.2
+RUN python3 -m pip install --upgrade pip && pip3 install eth-brownie==1.18.1
 
 # Add non-root user
 RUN groupadd -g ${PGID} brownie \
@@ -24,9 +24,9 @@ RUN groupadd -g ${PGID} brownie \
 USER user
 
 # Create directory for project
-RUN mkdir /home/user/artion
+RUN mkdir /home/user/marketplace
 
 # Set working directory
-WORKDIR /home/user/artion
+WORKDIR /home/user/marketplace
 
 ENTRYPOINT ["bash", "/app/entrypoint.sh"]

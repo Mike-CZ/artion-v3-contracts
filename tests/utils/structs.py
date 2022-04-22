@@ -2,6 +2,38 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class Auction:
+    owner: str
+    payment_token: str
+    reserve_price: int
+    is_min_bid_reserve_price: bool
+    start_time: int
+    end_time: int
+
+    def exists(self) -> bool:
+        return self.start_time > 0
+
+
+@dataclass(frozen=True)
+class ERC1155Auction:
+    auction: Auction
+    token_amount: int
+
+    def exists(self) -> bool:
+        return self.auction.exists()
+
+
+@dataclass(frozen=True)
+class HighestBid:
+    bidder: str
+    bid_amount: int
+    time: int
+
+    def exists(self) -> bool:
+        return self.bid_amount > 0
+
+
+@dataclass(frozen=True)
 class Listing:
     owner: str
     payment_token: str
