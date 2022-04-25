@@ -2,15 +2,18 @@ import pytest
 from dataclasses import dataclass
 from brownie import reverts
 from brownie.test import given, strategy
+from brownie.network.contract import ProjectContract
+from brownie.network.account import LocalAccount
+from typing import Callable
 
 
 @pytest.fixture(scope="session")
-def royalty_recipient(user):
+def royalty_recipient(user: LocalAccount) -> LocalAccount:
     return user
 
 
 @pytest.fixture(scope="session")
-def token_owner(user_2):
+def token_owner(user_2: LocalAccount) -> LocalAccount:
     return user_2
 
 
@@ -25,8 +28,13 @@ class TokenParams:
 
 
 @pytest.fixture(scope='module')
-def setup_registry_with_default(royalty_registry, erc1155_collection_mock, royalty_recipient, owner):
-    def setup_registry_with_default_():
+def setup_registry_with_default(
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        owner: LocalAccount
+) -> Callable:
+    def setup_registry_with_default_() -> None:
         royalty_registry.setDefaultRoyalty(
             erc1155_collection_mock, royalty_recipient, RoyaltyParams.fraction, {'from': owner}
         )
@@ -34,8 +42,13 @@ def setup_registry_with_default(royalty_registry, erc1155_collection_mock, royal
 
 
 @pytest.fixture(scope='module')
-def setup_registry_with_token(royalty_registry, erc1155_collection_mock, royalty_recipient, token_owner):
-    def setup_registry_with_token_():
+def setup_registry_with_token(
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        token_owner: LocalAccount
+) -> Callable:
+    def setup_registry_with_token_() -> None:
         erc1155_collection_mock.mint(token_owner, TokenParams.token_id, 1, '')
         royalty_registry.setTokenRoyalty(
             erc1155_collection_mock,
@@ -49,13 +62,13 @@ def setup_registry_with_token(royalty_registry, erc1155_collection_mock, royalty
 
 @pytest.mark.parametrize("setup_function", ['setup_registry_with_default', 'setup_registry_with_token'])
 def test_royalty_info(
-        royalty_registry,
-        setup_function,
-        setup_registry_with_default,
-        setup_registry_with_token,
-        erc1155_collection_mock,
-        royalty_recipient
-):
+        royalty_registry: ProjectContract,
+        setup_function: str,
+        setup_registry_with_default: Callable,
+        setup_registry_with_token: Callable,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount
+) -> None:
     """Test royalty info"""
 
     # dynamically call setup function
@@ -71,14 +84,24 @@ def test_royalty_info(
     assert royalty_amount == sale_price * RoyaltyParams.fraction / 10_000
 
 
-def test_set_default_royalty(royalty_registry, erc1155_collection_mock, royalty_recipient, owner):
+def test_set_default_royalty(
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        owner: LocalAccount
+) -> None:
     """Test set default royalty"""
     royalty_registry.setDefaultRoyalty(
         erc1155_collection_mock, royalty_recipient, RoyaltyParams.fraction, {'from': owner}
     )
 
 
-def test_set_default_royalty_supports_setter(royalty_registry, erc721_collection_mock, royalty_recipient, owner):
+def test_set_default_royalty_supports_setter(
+        royalty_registry: ProjectContract,
+        erc721_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        owner: LocalAccount
+) -> None:
     """Test set default royalty when supports setter"""
     with reverts('RoyaltyRegistry: supports royalty setter'):
         royalty_registry.setDefaultRoyalty(
@@ -86,7 +109,12 @@ def test_set_default_royalty_supports_setter(royalty_registry, erc721_collection
         )
 
 
-def test_set_default_royalty_too_high(royalty_registry, erc1155_collection_mock, royalty_recipient, owner):
+def test_set_default_royalty_too_high(
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        owner: LocalAccount
+) -> None:
     """Test set default royalty too high"""
     with reverts('RoyaltyRegistry: royalty too high'):
         royalty_registry.setDefaultRoyalty(
@@ -95,12 +123,12 @@ def test_set_default_royalty_too_high(royalty_registry, erc1155_collection_mock,
 
 
 def test_set_default_royalty_already_set(
-    setup_registry_with_default,
-    royalty_registry,
-    erc1155_collection_mock,
-    royalty_recipient,
-    owner
-):
+    setup_registry_with_default: Callable,
+    royalty_registry: ProjectContract,
+    erc1155_collection_mock: ProjectContract,
+    royalty_recipient: LocalAccount,
+    owner: LocalAccount
+) -> None:
     """Test set default royalty when already set"""
     setup_registry_with_default()
     with reverts('RoyaltyRegistry: royalty set'):
@@ -109,7 +137,12 @@ def test_set_default_royalty_already_set(
         )
 
 
-def test_set_default_royalty_unauthorized(royalty_registry, erc1155_collection_mock, royalty_recipient, user):
+def test_set_default_royalty_unauthorized(
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        user: LocalAccount
+) -> None:
     """Test set default royalty - unauthorized"""
     with reverts('Ownable: caller is not the owner'):
         royalty_registry.setDefaultRoyalty(
@@ -118,12 +151,12 @@ def test_set_default_royalty_unauthorized(royalty_registry, erc1155_collection_m
 
 
 def test_set_token_royalty(
-        royalty_registry,
-        erc1155_collection_mint,
-        erc1155_collection_mock,
-        royalty_recipient,
-        token_owner
-):
+        royalty_registry: ProjectContract,
+        erc1155_collection_mint: Callable,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        token_owner: LocalAccount
+) -> None:
     """Test set token royalty"""
     token_id = erc1155_collection_mint(token_owner)
     royalty_registry.setTokenRoyalty(
@@ -132,12 +165,12 @@ def test_set_token_royalty(
 
 
 def test_set_token_royalty_supports_setter(
-        royalty_registry,
-        erc721_collection_mint,
-        erc721_collection_mock,
-        royalty_recipient,
-        token_owner
-):
+        royalty_registry: ProjectContract,
+        erc721_collection_mint: Callable,
+        erc721_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        token_owner: LocalAccount
+) -> None:
     """Test set token royalty when supports setter"""
     token_id = erc721_collection_mint(token_owner)
     with reverts('RoyaltyRegistry: supports royalty setter'):
@@ -147,12 +180,12 @@ def test_set_token_royalty_supports_setter(
 
 
 def test_set_token_royalty_not_owner(
-        royalty_registry,
-        erc1155_collection_mint,
-        erc1155_collection_mock,
-        royalty_recipient,
-        token_owner
-):
+        royalty_registry: ProjectContract,
+        erc1155_collection_mint: Callable,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        token_owner: LocalAccount
+) -> None:
     """Test set token royalty when not token owner"""
     token_id = erc1155_collection_mint(token_owner)
     with reverts('RoyaltyRegistry: not owner'):
@@ -162,12 +195,12 @@ def test_set_token_royalty_not_owner(
 
 
 def test_set_token_royalty_too_high(
-        royalty_registry,
-        erc1155_collection_mint,
-        erc1155_collection_mock,
-        royalty_recipient,
-        token_owner
-):
+        royalty_registry: ProjectContract,
+        erc1155_collection_mint: Callable,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        token_owner: LocalAccount
+) -> None:
     """Test set token royalty too high"""
     token_id = erc1155_collection_mint(token_owner)
     with reverts('RoyaltyRegistry: royalty too high'):
@@ -177,12 +210,12 @@ def test_set_token_royalty_too_high(
 
 
 def test_set_token_royalty_already_set(
-        setup_registry_with_token,
-        royalty_registry,
-        erc1155_collection_mock,
-        royalty_recipient,
-        token_owner
-):
+        setup_registry_with_token: Callable,
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        token_owner: LocalAccount
+) -> None:
     """Test set token royalty when already set"""
     setup_registry_with_token()
     with reverts('RoyaltyRegistry: royalty set'):
@@ -196,23 +229,23 @@ def test_set_token_royalty_already_set(
 
 
 def test_update_default_royalty_recipient(
-        setup_registry_with_default,
-        royalty_registry,
-        erc1155_collection_mock,
-        royalty_recipient,
-        owner
-):
+        setup_registry_with_default: Callable,
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: {ProjectContract},
+        royalty_recipient: LocalAccount,
+        owner: LocalAccount
+) -> None:
     """Test update default royalty recipient"""
     setup_registry_with_default()
     royalty_registry.updateDefaultRoyaltyRecipient(erc1155_collection_mock, owner, {'from': royalty_recipient})
 
 
 def test_update_default_royalty_recipient_not_current(
-        setup_registry_with_default,
-        royalty_registry,
-        erc1155_collection_mock,
-        owner
-):
+        setup_registry_with_default: Callable,
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        owner: LocalAccount
+) -> None:
     """Test update default royalty recipient when not current recipient"""
     setup_registry_with_default()
     with reverts('RoyaltyRegistry: not current recipient'):
@@ -220,12 +253,12 @@ def test_update_default_royalty_recipient_not_current(
 
 
 def test_update_token_royalty_recipient(
-        setup_registry_with_token,
-        royalty_registry,
-        erc1155_collection_mock,
-        royalty_recipient,
-        owner
-):
+        setup_registry_with_token: Callable,
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        royalty_recipient: LocalAccount,
+        owner: LocalAccount
+) -> None:
     """Test update token royalty recipient"""
     setup_registry_with_token()
     royalty_registry.updateTokenRoyaltyRecipient(
@@ -234,11 +267,11 @@ def test_update_token_royalty_recipient(
 
 
 def test_update_token_royalty_recipient_not_current(
-        setup_registry_with_token,
-        royalty_registry,
-        erc1155_collection_mock,
-        owner
-):
+        setup_registry_with_token: Callable,
+        royalty_registry: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        owner: LocalAccount
+) -> None:
     """Test update token royalty recipient when not current recipient"""
     setup_registry_with_token()
     with reverts('RoyaltyRegistry: not current recipient'):
