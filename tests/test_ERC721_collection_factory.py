@@ -1,10 +1,11 @@
 from brownie import Wei, accounts, reverts, ERC721Collection
+from brownie.network.contract import ProjectContract
 
 
 class TestCreateERC721Collection:
     create_collection_fee = Wei("5 ether")  # fee recipient is accounts[0]
 
-    def test_insufficient_funds(self, erc721_collection_factory):
+    def test_insufficient_funds(self, erc721_collection_factory: ProjectContract) -> None:
         with reverts("ERC721CollectionFactory: Insufficient funds to create a collection"):
             erc721_collection_factory.createERC721Collection(
                 "TestToken",
@@ -15,7 +16,7 @@ class TestCreateERC721Collection:
                 {"from": accounts[0], "value": 1}
             )
 
-    def test_transfer_platform_fee(self, erc721_collection_factory):
+    def test_transfer_platform_fee(self, erc721_collection_factory: ProjectContract) -> None:
         fee_recipient_balance_before = accounts[0].balance()
 
         erc721_collection_factory.createERC721Collection(
@@ -29,7 +30,7 @@ class TestCreateERC721Collection:
 
         assert accounts[0].balance() == fee_recipient_balance_before + self.create_collection_fee
 
-    def test_creates_collection_and_set_owner(self, erc721_collection_factory):
+    def test_creates_collection_and_set_owner(self, erc721_collection_factory: ProjectContract) -> None:
         tx = erc721_collection_factory.createERC721Collection(
             "TestToken",
             "TT",
@@ -44,7 +45,7 @@ class TestCreateERC721Collection:
         assert collection._name == "ERC721Collection"
         assert collection.owner() == accounts[1]
 
-    def test_emits_correct_event(self, erc721_collection_factory):
+    def test_emits_correct_event(self, erc721_collection_factory: ProjectContract) -> None:
         tx = erc721_collection_factory.createERC721Collection(
             "TestToken",
             "TT",

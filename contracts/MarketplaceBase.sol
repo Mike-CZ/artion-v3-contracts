@@ -150,7 +150,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         _listingFee = listingFee;
     }
 
-
     /**
     * @notice Get offer fee
     * @return uint256
@@ -258,12 +257,14 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         Auction memory auction,
         HighestBid memory highestBid
     ) internal returns (uint256) {
-        if (highestBid.bidAmount > auction.reservePrice) {
-            uint256 fee = (highestBid.bidAmount - auction.reservePrice) * _auctionFee / 1_000;
-            _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
-            return fee;
+        uint256 fee = highestBid.bidAmount * _auctionFee / 1_000;
+
+        if (fee == 0) {
+            return 0;
         }
-        return 0;
+
+        _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
+        return fee;
     }
 
     // DISCUSS: Merge fee calculation into one function?
@@ -280,6 +281,11 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         address from
     ) internal returns (uint256) {
         uint256 fee = price * _listingFee / 1_000;
+
+        if (fee == 0) {
+            return 0;
+        }
+
         _transferPayTokenAmount(paymentToken, from, _feeRecipient, fee);
         return fee;
     }
