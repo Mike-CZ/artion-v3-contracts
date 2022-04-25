@@ -691,7 +691,7 @@ def test_finish_auction(
     initial_seller_amount = payment_token.balanceOf(seller)
     initial_marketplace_amount = payment_token.balanceOf(erc721_marketplace_mock)
 
-    fee = calculate_auction_fee(price, AuctionParams.reserve_price, erc721_marketplace_mock.getAuctionFee())
+    fee = calculate_auction_fee(price, erc721_marketplace_mock.getAuctionFee())
     royalty_fee = calculate_royalty_fee(price - fee, RoyaltyParams.fraction)
 
     tx = erc721_marketplace_mock.finishAuction(
