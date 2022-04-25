@@ -733,7 +733,7 @@ def test_finish_auction(
         erc1155_marketplace_mock, AuctionParams.token_id
     )
 
-    fee = calculate_auction_fee(price, AuctionParams.reserve_price, erc1155_marketplace_mock.getAuctionFee())
+    fee = calculate_auction_fee(price, erc1155_marketplace_mock.getAuctionFee())
     royalty_fee = calculate_royalty_fee(price - fee, RoyaltyParams.fraction)
 
     tx = erc1155_marketplace_mock.finishAuction(

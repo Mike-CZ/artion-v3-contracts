@@ -211,7 +211,7 @@ class StateMachine:
                 {'from': bid.bidder if random.randint(0, 1) == 1 else auction.owner}
             )
 
-        fee = calculate_auction_fee(bid.bid_amount, auction.reserve_price, self.marketplace.getAuctionFee())
+        fee = calculate_auction_fee(bid.bid_amount, self.marketplace.getAuctionFee())
 
         erc20 = self.erc20_contracts[auction.pay_token]
         self._subtract_pay_token_amount(self.marketplace.address, erc20, bid.bid_amount)
