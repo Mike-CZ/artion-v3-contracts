@@ -5,6 +5,7 @@ from brownie.network.contract import ProjectContract
 from brownie.network.account import LocalAccount
 from typing import Callable
 
+
 @pytest.fixture(scope="module")
 def erc721_collection_private_mock(owner: LocalAccount) -> ProjectContract:
     return ERC721CollectionMock.deploy(

@@ -150,7 +150,6 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
         _listingFee = listingFee;
     }
 
-
     /**
     * @notice Get offer fee
     * @return uint256
