@@ -82,7 +82,7 @@ def address_registry(
 
 @pytest.fixture(scope="module")
 def erc1155_marketplace_mock(address_registry: ProjectContract, owner: LocalAccount) -> ProjectContract:
-    return ERC1155MarketplaceMock.deploy(address_registry, owner, True, {'from': owner})
+    return ERC1155MarketplaceMock.deploy(address_registry, 25, 25, 25, owner, True, {'from': owner})
 
 
 @pytest.fixture(scope="module")
@@ -98,7 +98,7 @@ def erc1155_collection_mint(erc1155_collection_mock: ProjectContract) -> Callabl
 
 @pytest.fixture(scope="module")
 def erc721_marketplace_mock(address_registry: ProjectContract, owner: LocalAccount) -> ProjectContract:
-    return ERC721MarketplaceMock.deploy(address_registry, owner, True, {'from': owner})
+    return ERC721MarketplaceMock.deploy(address_registry, 25, 25, 25, owner, True, {'from': owner})
 
 
 @pytest.fixture(scope="module")

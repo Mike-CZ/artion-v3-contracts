@@ -7,9 +7,12 @@ import "../ERC1155Marketplace.sol";
 contract ERC1155MarketplaceMock is ERC1155Marketplace {
     constructor(
         address addressRegistry,
+        uint256 auctionFee,
+        uint256 listingFee,
+        uint256 offerFee,
         address payable feeRecipient,
         bool escrowOfferPaymentTokens
-    ) ERC1155Marketplace(addressRegistry, feeRecipient, escrowOfferPaymentTokens) {}
+    ) ERC1155Marketplace(addressRegistry, auctionFee, listingFee, offerFee, feeRecipient, escrowOfferPaymentTokens) {}
 
     function createAuctionAndTransferToken(
         NFTAddress nft,

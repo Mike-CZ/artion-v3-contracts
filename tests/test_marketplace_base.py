@@ -7,7 +7,7 @@ from brownie.network.account import LocalAccount
 
 @pytest.fixture(scope="module")
 def marketplace_base_mock(address_registry: ProjectContract, owner: LocalAccount) -> None:
-    return MarketplaceBaseMock.deploy(address_registry, owner, {'from': owner})
+    return MarketplaceBaseMock.deploy(address_registry, 25, 25, 25, owner, {'from': owner})
 
 
 @given(address=strategy('address'))

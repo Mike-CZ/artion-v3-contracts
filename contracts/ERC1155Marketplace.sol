@@ -53,9 +53,12 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
 
     constructor(
         address addressRegistry,
+        uint256 auctionFee,
+        uint256 listingFee,
+        uint256 offerFee,
         address payable feeRecipient,
         bool escrowOfferPaymentTokens
-    ) MarketplaceBase(addressRegistry, feeRecipient, escrowOfferPaymentTokens) {}
+    ) MarketplaceBase(addressRegistry, auctionFee, listingFee, offerFee, feeRecipient, escrowOfferPaymentTokens) {}
 
     /**
      * @notice Get auction for given token and owner

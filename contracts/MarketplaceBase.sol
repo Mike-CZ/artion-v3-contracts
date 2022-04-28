@@ -69,17 +69,17 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     /*
     * @notice auction fee, assumed to be 1 decimal place i.e. 25 = 2,5%
     */
-    uint256 internal _auctionFee = 25;
+    uint256 internal _auctionFee;
 
     /*
     * @notice listing fee, assumed to be 1 decimal place i.e. 25 = 2,5%
     */
-    uint256 internal _listingFee = 25;
+    uint256 internal _listingFee;
 
     /*
     * @notice offer fee, assumed to be 1 decimal place i.e. 25 = 2,5%
     */
-    uint256 internal _offerFee = 25;
+    uint256 internal _offerFee;
 
     /**
     * @notice recipient of fees
@@ -96,8 +96,18 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     */
     IAddressRegistry internal _addressRegistry;
 
-    constructor(address addressRegistry, address feeRecipient, bool escrowOfferPaymentTokens) {
+    constructor(
+        address addressRegistry,
+        uint256 auctionFee,
+        uint256 listingFee,
+        uint256 offerFee,
+        address feeRecipient,
+        bool escrowOfferPaymentTokens
+    ) {
         _addressRegistry = IAddressRegistry(addressRegistry);
+        _auctionFee = auctionFee;
+        _listingFee = listingFee;
+        _offerFee = offerFee;
         _feeRecipient = feeRecipient;
         _escrowOfferPaymentTokens = escrowOfferPaymentTokens;
     }

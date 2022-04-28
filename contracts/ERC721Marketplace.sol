@@ -27,9 +27,12 @@ contract ERC721Marketplace is ERC721Holder, ReentrancyGuard, MarketplaceBase, IE
 
     constructor(
         address addressRegistry,
+        uint256 auctionFee,
+        uint256 listingFee,
+        uint256 offerFee,
         address payable feeRecipient,
         bool escrowOfferPaymentTokens
-    ) MarketplaceBase(addressRegistry, feeRecipient, escrowOfferPaymentTokens) {}
+    ) MarketplaceBase(addressRegistry, auctionFee, listingFee, offerFee, feeRecipient, escrowOfferPaymentTokens) {}
 
     /// @notice Method for listing an NFT
     /// @param nftAddress Address of NFT contract
