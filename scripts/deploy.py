@@ -1,24 +1,102 @@
 import click
-from brownie import AddressRegistry, PaymentTokenRegistry
+from brownie import AddressRegistry, PaymentTokenRegistry, RoyaltyRegistry, AddressRegistry, ERC721Marketplace, \
+    ERC1155Marketplace, ERC721Collection, ERC721CollectionFactory
 from brownie import network, accounts
 from brownie.network.account import LocalAccount
+from eth_utils import is_address
+
+
+def validate_eth_address(value):
+    if not is_address(value):
+        raise click.UsageError("Invalid address!")
+    return value
 
 
 def deploy_marketplace(account: LocalAccount) -> None:
-    click.echo(f"You are using deploying marketplace")
+    click.echo(f"You are deploying marketplace")
     auction_fee = click.prompt('Insert auction fee (assumed to be 1 decimal place i.e. 25 = 2,5%)',
                                type=click.IntRange(min=0))
     listing_fee = click.prompt('Insert listing fee (assumed to be 1 decimal place i.e. 25 = 2,5%)',
                                type=click.IntRange(min=0))
     offer_fee = click.prompt('Insert offer fee (assumed to be 1 decimal place i.e. 25 = 2,5%)',
                              type=click.IntRange(min=0))
-    fee_recipient = click.prompt('Insert fee recipient address', type=click.STRING)
+    fee_recipient = click.prompt('Insert fee recipient address', value_proc=validate_eth_address)
     escrow_offer_tokens = click.prompt('Escrow offer tokens', type=click.BOOL)
 
+    click.echo(
+        f"""
+    Marketplace Deployment Parameters
+            auction fee: {auction_fee}
+            listing fee: {listing_fee}
+              offer fee: {offer_fee}
+          fee_recipient: {fee_recipient}
+    escrow offer tokens: {escrow_offer_tokens}
+    """
+    )
+
+    if not click.confirm("Deploy Marketplace"):
+        return
+
     payment_token_registry = PaymentTokenRegistry.deploy({'from': account})
-    print(payment_token_registry)
+    royalty_registry = RoyaltyRegistry.deploy({'from': account})
+    address_registry = AddressRegistry.deploy({'from': account})
+    address_registry.updatePaymentTokenRegistryAddress(payment_token_registry, {'from': account})
+    address_registry.updateRoyaltyRegistryAddress(royalty_registry, {'from': account})
+
+    for marketplace in ['ERC721Marketplace', 'ERC1155Marketplace']:
+        eval(marketplace).deploy(
+            address_registry, auction_fee, listing_fee, offer_fee, fee_recipient, escrow_offer_tokens, {'from': account}
+        )
+
+    click.echo("Marketplace successfully deployed")
 
 
+def deploy_erc721_collection(account: LocalAccount) -> None:
+    click.echo(f"You are deploying ERC721Collection")
+    name = click.prompt('Insert name', type=click.STRING)
+    symbol = click.prompt('Insert symbol', type=click.STRING)
+    mint_fee = click.prompt('Insert mint fee', type=click.IntRange(min=0))
+    fee_recipient = click.prompt('Insert mint fee recipient address', value_proc=validate_eth_address)
+    is_private = click.prompt('Is private', type=click.BOOL)
+
+    click.echo(
+        f"""
+    ERC721Collection Deployment Parameters
+             name: {name}
+           symbol: {symbol}
+         mint fee: {mint_fee}
+    fee recipient: {fee_recipient}
+       is private: {is_private}
+    """
+    )
+
+    if not click.confirm("Deploy ERC721Collection"):
+        return
+
+    ERC721Collection.deploy(name, symbol, mint_fee, fee_recipient, is_private, {'from': account})
+
+    click.echo("ERC721Collection successfully deployed")
+
+
+def deploy_erc721_collection_factory(account: LocalAccount) -> None:
+    click.echo(f"You are deploying ERC721CollectionFactory")
+    platform_fee = click.prompt('Insert platform fee', type=click.IntRange(min=0))
+    fee_recipient = click.prompt('Insert platform fee recipient address', value_proc=validate_eth_address)
+
+    click.echo(
+        f"""
+    ERC721CollectionFactory Deployment Parameters
+     platform fee: {platform_fee}
+    fee recipient: {fee_recipient}
+    """
+    )
+
+    if not click.confirm("Deploy ERC721CollectionFactory"):
+        return
+
+    ERC721CollectionFactory.deploy(platform_fee, fee_recipient, {'from': account})
+
+    click.echo("ERC721CollectionFactory successfully deployed")
 
 
 def main():
@@ -40,6 +118,10 @@ def main():
 
     if option == "1":
         deploy_marketplace(account)
+    if option == "2":
+        deploy_erc721_collection(account)
+    if option == "3":
+        deploy_erc721_collection_factory(account)
 
 
 
