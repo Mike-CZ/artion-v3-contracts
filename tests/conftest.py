@@ -1,7 +1,7 @@
 import pytest
 from brownie import PaymentTokenRegistry, ERC721CollectionMock, ERC721CollectionFactory, ERC1155CollectionMock, \
     ERC1155MarketplaceMock, MarketplaceBaseMock, AddressRegistry, ERC20TokenMock, RoyaltyRegistry, accounts, \
-    ERC721MarketplaceMock, TransparentUpgradeableProxy, ZERO_ADDRESS, Wei
+    ERC721MarketplaceMock, ZERO_ADDRESS, Wei
 import utils.constants
 from utils.helpers import encode_function_data
 from brownie.network.contract import ProjectContract

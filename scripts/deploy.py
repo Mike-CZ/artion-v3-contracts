@@ -1,9 +1,10 @@
 import click
 from brownie import AddressRegistry, PaymentTokenRegistry, RoyaltyRegistry, AddressRegistry, ERC721Marketplace, \
-    ERC1155Marketplace, ERC721Collection, ERC721CollectionFactory
+    ERC1155Marketplace, ERC721Collection, ERC721CollectionFactory, ProxyAdmin, TransparentUpgradeableProxy
 from brownie import network, accounts
 from brownie.network.account import LocalAccount
 from eth_utils import is_address
+from scripts.helpful_scripts import encode_function_data
 
 
 def validate_eth_address(value):
@@ -22,6 +23,7 @@ def deploy_marketplace(account: LocalAccount) -> None:
                              type=click.IntRange(min=0))
     fee_recipient = click.prompt('Insert fee recipient address', value_proc=validate_eth_address)
     escrow_offer_tokens = click.prompt('Escrow offer tokens', type=click.BOOL)
+    proxy_admin = click.prompt('Insert proxy admin address', value_proc=validate_eth_address)
 
     click.echo(
         f"""
@@ -29,8 +31,9 @@ def deploy_marketplace(account: LocalAccount) -> None:
             auction fee: {auction_fee}
             listing fee: {listing_fee}
               offer fee: {offer_fee}
-          fee_recipient: {fee_recipient}
+          fee recipient: {fee_recipient}
     escrow offer tokens: {escrow_offer_tokens}
+            proxy admin: {proxy_admin}
     """
     )
 
@@ -43,10 +46,21 @@ def deploy_marketplace(account: LocalAccount) -> None:
     address_registry.updatePaymentTokenRegistryAddress(payment_token_registry, {'from': account})
     address_registry.updateRoyaltyRegistryAddress(royalty_registry, {'from': account})
 
-    for marketplace in ['ERC721Marketplace', 'ERC1155Marketplace']:
-        eval(marketplace).deploy(
-            address_registry, auction_fee, listing_fee, offer_fee, fee_recipient, escrow_offer_tokens, {'from': account}
+    proxy_admin_contract = ProxyAdmin.deploy({"from": account})
+
+    for marketplace in [ERC721Marketplace, ERC1155Marketplace]:
+        marketplace_contract = marketplace.deploy({'from': account})
+        TransparentUpgradeableProxy.deploy(
+            marketplace_contract,
+            proxy_admin_contract,
+            encode_function_data(
+                marketplace_contract.initialize,
+                address_registry, auction_fee, listing_fee, offer_fee, fee_recipient, escrow_offer_tokens
+            ),
+            {'from': account}
         )
+
+    proxy_admin_contract.transferOwnership(proxy_admin, {'from': account})
 
     click.echo("Marketplace successfully deployed")
 
