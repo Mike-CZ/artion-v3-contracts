@@ -200,28 +200,6 @@ def test_create_action_invalid_token_type(
         )
 
 
-def test_create_action_not_approved(
-        erc721_marketplace_mock: ProjectContract,
-        erc721_collection_mock: ProjectContract,
-        erc721_collection_mint: Callable,
-        payment_token: ProjectContract,
-        seller: LocalAccount
-) -> None:
-    """Test auction creation without approval"""
-    token_id = erc721_collection_mint(seller)
-    with reverts('ERC721Marketplace: not approved for the token'):
-        erc721_marketplace_mock.createAuction(
-            erc721_collection_mock,
-            token_id,
-            payment_token,
-            AuctionParams.reserve_price,
-            AuctionParams.start_time,
-            AuctionParams.end_time,
-            False,
-            {'from': seller}
-        )
-
-
 @given(token_address=strategy('address'))
 def test_create_action_invalid_payment_token(
         erc721_marketplace_mock: ProjectContract,

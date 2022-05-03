@@ -2,18 +2,25 @@
 
 pragma solidity ^0.8.0;
 
-import "openzeppelin/contracts/access/Ownable.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC2981.sol";
 import "openzeppelin/contracts/interfaces/IERC20.sol";
 import "openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import "./library/NFTTradable.sol";
 import "../interfaces/IAddressRegistry.sol";
 import "../interfaces/IMarketplaceBase.sol";
 import "../interfaces/IPaymentTokenRegistry.sol";
 import "../interfaces/IRoyaltyRegistry.sol";
 
-abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
+abstract contract MarketplaceBase is
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
+    IMarketplaceBase
+{
     using SafeERC20 for IERC20;
 
     struct Auction {
@@ -64,7 +71,7 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     /**
     * @notice amount by which a bid has to increase
     */
-    uint256 internal _minBidIncrementAmount = 1;
+    uint256 internal _minBidIncrementAmount;
 
     /*
     * @notice auction fee, assumed to be 1 decimal place i.e. 25 = 2,5%
@@ -96,14 +103,28 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     */
     IAddressRegistry internal _addressRegistry;
 
-    constructor(
+    /**
+     * @notice Initialize marketplace
+     * @param addressRegistry Address registry address
+     * @param auctionFee Auction fee - assumed to be 1 decimal place i.e. 25 = 2,5%
+     * @param listingFee Listing fee - assumed to be 1 decimal place i.e. 25 = 2,5%
+     * @param offerFee Offer fee - assumed to be 1 decimal place i.e. 25 = 2,5%
+     * @param feeRecipient Address of fee recipient
+     * @param escrowOfferPaymentTokens Hold offer payment tokens in escrow flag
+     */
+    function initialize(
         address addressRegistry,
         uint256 auctionFee,
         uint256 listingFee,
         uint256 offerFee,
         address feeRecipient,
         bool escrowOfferPaymentTokens
-    ) {
+    ) public initializer {
+        __Ownable_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+
+        _minBidIncrementAmount = 1;
         _addressRegistry = IAddressRegistry(addressRegistry);
         _auctionFee = auctionFee;
         _listingFee = listingFee;
@@ -706,19 +727,20 @@ abstract contract MarketplaceBase is Ownable, IMarketplaceBase {
     }
 
     /**
-     * @notice Validate offer ownership
-     * @param offeror Owner and creator of the offer
-     */
-    function _validateOfferOwnership(address offeror) internal view {
-        require(offeror == _msgSender(), 'MarketplaceBase: NOT an offer owner');
-    }
-
-    /**
      * @notice Validate offer expiration time
      * @param expirationTime Expiration time as unix time
      */
     function _validateOfferExpirationTime(uint256 expirationTime) internal view {
         require(expirationTime >= _getNow(), 'MarketplaceBase: invalid expiration time');
+    }
+
+    /**
+     * @notice Validate ownership
+     * @param firstAddress Address to validate
+     * @param secondAddress Address to validate
+     */
+    function _validateOwnership(address firstAddress, address secondAddress) internal view {
+        require(firstAddress == secondAddress, 'MarketplaceBase: not owner');
     }
 
     /**

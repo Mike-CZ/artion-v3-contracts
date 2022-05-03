@@ -188,47 +188,6 @@ def test_invalid_start_time(
         )
 
 
-def test_listing_as_not_owner(
-        payment_token: ProjectContract,
-        erc721_collection_mint_with_approval,
-        erc721_marketplace_mock: ProjectContract,
-        erc721_collection_mock: ProjectContract,
-        seller: LocalAccount,
-        buyer: LocalAccount
-) -> None:
-    """Test listing token as not owner"""
-    with reverts('ERC721Marketplace: does not own the token'):
-        erc721_marketplace_mock.createListing(
-            erc721_collection_mock,
-            erc721_collection_mint_with_approval,
-            payment_token,
-            ListingParams.price,
-            ListingParams.start_time,
-            {'from': buyer}
-        )
-
-
-def test_listing_not_approved_token(
-        payment_token: ProjectContract,
-        erc721_marketplace_mock: ProjectContract,
-        erc721_collection_mock: ProjectContract,
-        erc721_collection_mint: Callable,
-        seller: LocalAccount
-) -> None:
-    """Test listing now approved token"""
-    token_id = erc721_collection_mint(seller)
-
-    with reverts('ERC721Marketplace: not approved for the token'):
-        erc721_marketplace_mock.createListing(
-            erc721_collection_mock,
-            token_id,
-            payment_token,
-            ListingParams.price,
-            ListingParams.start_time,
-            {'from': seller}
-        )
-
-
 @pytest.mark.parametrize('new_payment_token', [TOMB_TOKEN, WFTM_TOKEN, ZOO_TOKEN])
 def test_update_listing(
         payment_token: ProjectContract,
@@ -280,7 +239,7 @@ def test_update_listing_as_not_owner(
     token_id = setup_listing()
 
     # update listing
-    with reverts('ERC721Marketplace: does not own the token'):
+    with reverts('MarketplaceBase: not owner'):
         erc721_marketplace_mock.updateListing(
             erc721_collection_mock,
             token_id,
@@ -356,7 +315,7 @@ def test_cancel_listing_as_not_owner(
     token_id = setup_listing()
 
     # cancel listing
-    with reverts('ERC721Marketplace: does not own the token'):
+    with reverts('MarketplaceBase: not owner'):
         erc721_marketplace_mock.cancelListing(
             erc721_collection_mock,
             token_id,

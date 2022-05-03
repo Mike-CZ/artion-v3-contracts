@@ -5,15 +5,6 @@ pragma solidity ^0.8.0;
 import "../ERC721Marketplace.sol";
 
 contract ERC721MarketplaceMock is ERC721Marketplace {
-    constructor(
-        address addressRegistry,
-        uint256 auctionFee,
-        uint256 listingFee,
-        uint256 offerFee,
-        address payable feeRecipient,
-        bool escrowOfferPaymentTokens
-    ) ERC721Marketplace(addressRegistry, auctionFee, listingFee, offerFee, feeRecipient, escrowOfferPaymentTokens) {}
-
     function createAuctionAndTransferToken(
         NFTAddress nft,
         uint256 tokenId,

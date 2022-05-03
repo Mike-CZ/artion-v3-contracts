@@ -1,8 +1,9 @@
 import pytest
 from brownie import PaymentTokenRegistry, ERC721CollectionMock, ERC721CollectionFactory, ERC1155CollectionMock, \
     ERC1155MarketplaceMock, MarketplaceBaseMock, AddressRegistry, ERC20TokenMock, RoyaltyRegistry, accounts, \
-    ERC721MarketplaceMock, ZERO_ADDRESS, Wei
+    ERC721MarketplaceMock, TransparentUpgradeableProxy, ZERO_ADDRESS, Wei
 import utils.constants
+from utils.helpers import encode_function_data
 from brownie.network.contract import ProjectContract
 from brownie.network.account import LocalAccount
 from typing import Callable
@@ -82,7 +83,9 @@ def address_registry(
 
 @pytest.fixture(scope="module")
 def erc1155_marketplace_mock(address_registry: ProjectContract, owner: LocalAccount) -> ProjectContract:
-    return ERC1155MarketplaceMock.deploy(address_registry, 25, 25, 25, owner, True, {'from': owner})
+    contract = ERC1155MarketplaceMock.deploy({'from': owner})
+    contract.initialize(address_registry, 25, 25, 25, owner, True)
+    return contract
 
 
 @pytest.fixture(scope="module")
@@ -98,7 +101,9 @@ def erc1155_collection_mint(erc1155_collection_mock: ProjectContract) -> Callabl
 
 @pytest.fixture(scope="module")
 def erc721_marketplace_mock(address_registry: ProjectContract, owner: LocalAccount) -> ProjectContract:
-    return ERC721MarketplaceMock.deploy(address_registry, 25, 25, 25, owner, True, {'from': owner})
+    contract = ERC721MarketplaceMock.deploy({'from': owner})
+    contract.initialize(address_registry, 25, 25, 25, owner, True)
+    return contract
 
 
 @pytest.fixture(scope="module")
