@@ -8,6 +8,7 @@ from typing import Callable
 from utils.helpers import calculate_offer_fee, calculate_royalty_fee
 from brownie import reverts, Wei, chain, ZERO_ADDRESS
 from utils.constants import WFTM_TOKEN, TOMB_TOKEN, ZOO_TOKEN
+from utils.structs import Listing
 
 
 @dataclass(frozen=True)
@@ -52,7 +53,6 @@ def handle_listing_status(status: ListingStatus) -> None:
 def setup_listing(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        royalty_registry: ProjectContract,
         royalty_recipient: LocalAccount,
         payment_token: ProjectContract,
         seller: LocalAccount
@@ -86,16 +86,18 @@ def setup_listing(
 
 def test_create_listing(
         payment_token: ProjectContract,
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         seller: LocalAccount
 ) -> None:
     """Test listing creation"""
+    token_id = erc721_collection_mint_with_approval(seller)
+
     # create listing
     tx = erc721_marketplace_mock.createListing(
         erc721_collection_mock,
-        erc721_collection_mint_with_approval,
+        token_id,
         payment_token,
         ListingParams.price,
         ListingParams.start_time,
@@ -103,20 +105,21 @@ def test_create_listing(
     )
 
     # assert token has been transferred into escrow
-    assert erc721_collection_mock.ownerOf(erc721_collection_mint_with_approval) == erc721_marketplace_mock
+    assert erc721_collection_mock.ownerOf(token_id) == erc721_marketplace_mock
 
     # assert listing was created with correct data
-    listing = erc721_marketplace_mock.getListing(erc721_collection_mock, erc721_collection_mint_with_approval)
-    assert listing[0] == seller
-    assert listing[1] == payment_token.address
-    assert listing[2] == ListingParams.price
-    assert listing[3] == ListingParams.start_time
+    listing = Listing(*erc721_marketplace_mock.getListing(erc721_collection_mock, token_id))
+    assert listing.exists()
+    assert listing.owner == seller
+    assert listing.payment_token == payment_token.address
+    assert listing.price == ListingParams.price
+    assert listing.starting_time == ListingParams.start_time
 
     # check event
     assert tx.events["ERC721ListingCreated"] is not None
     assert tx.events["ERC721ListingCreated"]["nftOwner"] == seller
     assert tx.events["ERC721ListingCreated"]["nftAddress"] == erc721_collection_mock
-    assert tx.events["ERC721ListingCreated"]["tokenId"] == erc721_collection_mint_with_approval
+    assert tx.events["ERC721ListingCreated"]["tokenId"] == token_id
     assert tx.events["ERC721ListingCreated"]["paymentToken"] == payment_token.address
     assert tx.events["ERC721ListingCreated"]["price"] == ListingParams.price
     assert tx.events["ERC721ListingCreated"]["startingTime"] == ListingParams.start_time
@@ -124,7 +127,6 @@ def test_create_listing(
 
 def test_list_already_listed_token(
         payment_token: ProjectContract,
-        erc721_collection_mint_with_approval: int,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         seller: LocalAccount,
@@ -150,7 +152,6 @@ def test_listing_not_erc721(
         payment_token: ProjectContract,
         erc721_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
-        erc721_collection_mint: Callable,
         seller: LocalAccount
 ) -> None:
     """Test listing ERC1155 token in ERC721 marketplace"""
@@ -171,7 +172,6 @@ def test_invalid_start_time(
         payment_token: ProjectContract,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        erc721_collection_mint: Callable,
         seller: LocalAccount
 ) -> None:
     """Test listing with start time in the past"""
@@ -190,7 +190,6 @@ def test_invalid_start_time(
 
 @pytest.mark.parametrize('new_payment_token', [TOMB_TOKEN, WFTM_TOKEN, ZOO_TOKEN])
 def test_update_listing(
-        payment_token: ProjectContract,
         setup_listing: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
@@ -213,9 +212,9 @@ def test_update_listing(
     )
 
     # assert listing was updated with correct data
-    listing = erc721_marketplace_mock.getListing(erc721_collection_mock, token_id)
-    assert listing[1] == new_payment_token
-    assert listing[2] == updated_listing_price
+    listing = Listing(*erc721_marketplace_mock.getListing(erc721_collection_mock, token_id))
+    assert listing.payment_token == new_payment_token
+    assert listing.price == updated_listing_price
 
     # check event
     assert tx.events["ERC721ListingUpdated"] is not None
@@ -227,11 +226,9 @@ def test_update_listing(
 
 
 def test_update_listing_as_not_owner(
-        payment_token: ProjectContract,
         setup_listing: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        seller: LocalAccount,
         buyer: LocalAccount
 ) -> None:
     """Test listing update as not owner of NFT"""
@@ -250,17 +247,18 @@ def test_update_listing_as_not_owner(
 
 
 def test_update_not_listed(
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         seller: LocalAccount
 ) -> None:
     """Test updating non-existent listing"""
+    token_id = erc721_collection_mint_with_approval(seller)
     # update non-existent listing
     with reverts('MarketplaceBase: listing not exists'):
         erc721_marketplace_mock.updateListing(
             erc721_collection_mock,
-            erc721_collection_mint_with_approval,
+            token_id,
             TOMB_TOKEN,
             Wei('2 ether'),
             {'from': seller}
@@ -268,7 +266,6 @@ def test_update_not_listed(
 
 
 def test_cancel_listing(
-        payment_token: ProjectContract,
         setup_listing: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
@@ -289,11 +286,7 @@ def test_cancel_listing(
     assert erc721_collection_mock.ownerOf(token_id) == seller
 
     # assert listing was canceled
-    listing = erc721_marketplace_mock.getListing(erc721_collection_mock, token_id)
-    assert listing[0] == ZERO_ADDRESS
-    assert listing[1] == ZERO_ADDRESS
-    assert listing[2] == 0
-    assert listing[3] == 0
+    assert erc721_marketplace_mock.hasListing(erc721_collection_mock, token_id) is False
 
     # check event
     assert tx.events["ERC721ListingCanceled"] is not None
@@ -303,11 +296,9 @@ def test_cancel_listing(
 
 
 def test_cancel_listing_as_not_owner(
-        payment_token: ProjectContract,
         setup_listing: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        seller: LocalAccount,
         buyer: LocalAccount
 ) -> None:
     """Test listing cancelling as not owner of NFT"""
@@ -324,17 +315,19 @@ def test_cancel_listing_as_not_owner(
 
 
 def test_cancel_not_listed(
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         seller: LocalAccount
 ) -> None:
     """Test cancelling non-existent listing"""
+    token_id = erc721_collection_mint_with_approval(seller)
+
     # cancel non-existent listing
     with reverts('MarketplaceBase: listing not exists'):
         erc721_marketplace_mock.cancelListing(
             erc721_collection_mock,
-            erc721_collection_mint_with_approval,
+            token_id,
             {'from': seller}
         )
 
@@ -392,25 +385,23 @@ def test_buy_listed_nft(
     assert tx.events["ERC721ListedItemSold"]["paymentToken"] == payment_token
 
     # check Listing removal
-    listing = erc721_marketplace_mock.getListing(erc721_collection_mock, token_id)
-    assert listing[0] == ZERO_ADDRESS
-    assert listing[1] == ZERO_ADDRESS
-    assert listing[2] == 0
-    assert listing[3] == 0
+    assert erc721_marketplace_mock.hasListing(erc721_collection_mock, token_id) is False
 
 
 def test_buy_invalid_collection_address(
         payment_token: ProjectContract,
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         erc721_marketplace_mock: ProjectContract,
         seller: LocalAccount
 ) -> None:
     """Test buying listing with invalid NFT contract address"""
+    token_id = erc721_collection_mint_with_approval(seller)
+
     # buy NOT listed with invalid NFT contract address
     with reverts('MarketplaceBase: listing not exists'):
         erc721_marketplace_mock.buyListedItem(
             ZERO_ADDRESS,
-            erc721_collection_mint_with_approval,
+            token_id,
             ListingParams.price,
             payment_token,
             {"from": seller}
@@ -443,7 +434,6 @@ def test_buy_listed_token_before_start_time(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         owner: LocalAccount,
-        seller: LocalAccount,
         buyer: LocalAccount
 ) -> None:
     """Test buying listed nft before listing starts"""
