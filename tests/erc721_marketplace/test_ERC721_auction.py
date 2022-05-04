@@ -131,7 +131,7 @@ def setup_auction_with_bid(
 def test_create_auction(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         payment_token: ProjectContract,
         seller: LocalAccount
 ) -> None:
@@ -145,7 +145,7 @@ def test_create_auction(
     end_time = start_time + (60 * 60 * 24)
 
     # mint token
-    token_id = erc721_collection_mint_with_approval
+    token_id = erc721_collection_mint_with_approval(seller)
 
     # create auction
     tx = erc721_marketplace_mock.createAuction(
@@ -206,12 +206,12 @@ def test_create_auction_invalid_token_type(
 def test_create_action_invalid_payment_token(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         token_address: LocalAccount,
         seller: LocalAccount
 ) -> None:
     """Test auction creation with invalid payment token"""
-    token_id = erc721_collection_mint_with_approval
+    token_id = erc721_collection_mint_with_approval(seller)
     with reverts('MarketplaceBase: payment token is not enabled'):
         erc721_marketplace_mock.createAuction(
             erc721_collection_mock,
@@ -228,12 +228,12 @@ def test_create_action_invalid_payment_token(
 def test_create_action_invalid_time_maximum_duration(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         payment_token: ProjectContract,
         seller: LocalAccount
 ) -> None:
     """Test auction creation with invalid time - maximum duration"""
-    token_id = erc721_collection_mint_with_approval
+    token_id = erc721_collection_mint_with_approval(seller)
     with reverts('MarketplaceBase: Auction time exceeds maximum duration'):
         erc721_marketplace_mock.createAuction(
             erc721_collection_mock,
@@ -250,12 +250,12 @@ def test_create_action_invalid_time_maximum_duration(
 def test_create_action_invalid_time_minimum_duration(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
-        erc721_collection_mint_with_approval: int,
+        erc721_collection_mint_with_approval: Callable,
         payment_token: ProjectContract,
         seller: LocalAccount
 ) -> None:
     """Test auction creation with invalid time - minimum duration"""
-    token_id = erc721_collection_mint_with_approval
+    token_id = erc721_collection_mint_with_approval(seller)
     with reverts('MarketplaceBase: Auction time does not meet minimum duration'):
         erc721_marketplace_mock.createAuction(
             erc721_collection_mock,
