@@ -7,6 +7,7 @@ from typing import Callable
 from brownie import reverts, chain, accounts, ZERO_ADDRESS
 from brownie.test import given, strategy
 from utils.helpers import calculate_auction_fee, calculate_royalty_fee
+from utils.structs import Auction, HighestBid
 
 
 @dataclass(frozen=True)
@@ -106,7 +107,7 @@ def setup_auction_with_bid(
         payment_token: ProjectContract,
         setup_auction: Callable,
         bidder: LocalAccount
-) -> None:
+) -> Callable:
     def setup_auction_with_bid_(
             status: AuctionStatus = AuctionStatus.STARTED,
             bid_amount: int = HighestBidParams.bid_amount
@@ -169,16 +170,17 @@ def test_create_auction(
     assert tx.events['ERC721AuctionCreated']['payToken'] == payment_token.address
 
     # assert auction created
-    auction = erc721_marketplace_mock.getAuction(erc721_collection_mock, token_id)
-    assert auction[0] == seller.address
-    assert auction[1] == payment_token.address
-    assert auction[2] == reserve_price
-    assert auction[3] == is_min_bid_reserve_price
-    assert auction[4] == start_time
-    assert auction[5] == end_time
+    auction = Auction(*erc721_marketplace_mock.getAuction(erc721_collection_mock, token_id))
+    assert auction.exists()
+    assert auction.owner == seller.address
+    assert auction.payment_token == payment_token.address
+    assert auction.reserve_price == reserve_price
+    assert auction.is_min_bid_reserve_price == is_min_bid_reserve_price
+    assert auction.start_time == start_time
+    assert auction.end_time == end_time
 
 
-def test_create_action_invalid_token_type(
+def test_create_auction_invalid_token_type(
         erc721_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         erc721_collection_mint: Callable,
@@ -313,9 +315,10 @@ def test_place_bid(
     )
 
     # assert bid exists
-    assert erc721_marketplace_mock.getHighestBid(
-        erc721_collection_mock, token_id
-    )[:2] == (bidder.address, bid_amount)
+    highest_bid = HighestBid(*erc721_marketplace_mock.getHighestBid(erc721_collection_mock, token_id))
+    assert highest_bid.exists()
+    assert highest_bid.bid_amount == bid_amount
+    assert highest_bid.bidder == bidder.address
 
     # asset event emitted correctly
     assert tx.events['ERC721BidPlaced'] is not None
@@ -529,14 +532,10 @@ def test_cancel_auction(
     assert tx.events['ERC721BidRefunded']['bid'] == HighestBidParams.bid_amount
 
     # assert auction does not exist
-    assert erc721_marketplace_mock.getAuction(
-        erc721_collection_mock, token_id
-    )[0] == ZERO_ADDRESS
+    assert erc721_marketplace_mock.hasAuction(erc721_collection_mock, token_id) is False
 
     # assert bid does not exist
-    assert erc721_marketplace_mock.getHighestBid(
-        erc721_collection_mock, token_id
-    )[0] == ZERO_ADDRESS
+    assert erc721_marketplace_mock.hasHighestBid(erc721_collection_mock, token_id) is False
 
 
 def test_cancel_auction_action_not_exist(
@@ -597,9 +596,7 @@ def test_withdraw_bid(
     assert tx.events['ERC721BidWithdrawn']['bid'] == HighestBidParams.bid_amount
 
     # assert bid does not exist
-    assert erc721_marketplace_mock.getHighestBid(
-        erc721_collection_mock, token_id
-    )[0] == ZERO_ADDRESS
+    assert erc721_marketplace_mock.hasHighestBid(erc721_collection_mock, token_id) is False
 
 
 def test_withdraw_bid_not_bidder(
@@ -695,14 +692,10 @@ def test_finish_auction(
     assert tx.events['ERC721AuctionFinished']['winningBid'] == price
 
     # assert auction does not exist
-    assert erc721_marketplace_mock.getAuction(
-        erc721_collection_mock, token_id
-    )[0] == ZERO_ADDRESS
+    assert erc721_marketplace_mock.hasAuction(erc721_collection_mock, token_id) is False
 
     # assert bid does not exist
-    assert erc721_marketplace_mock.getHighestBid(
-        erc721_collection_mock, token_id
-    )[0] == ZERO_ADDRESS
+    assert erc721_marketplace_mock.hasHighestBid(erc721_collection_mock, token_id) is False
 
 
 def test_finish_auction_from_bidder(
@@ -843,9 +836,8 @@ def test_update_auction_reserve_price(
     )
 
     # assert reserve price changed
-    assert erc721_marketplace_mock.getAuction(
-        erc721_collection_mock, token_id,
-    )[2] == reserve_price
+    auction = Auction(*erc721_marketplace_mock.getAuction(erc721_collection_mock, token_id))
+    assert auction.reserve_price == reserve_price
 
     # assert event emitted
     assert tx.events['ERC721AuctionReservePriceUpdated'] is not None

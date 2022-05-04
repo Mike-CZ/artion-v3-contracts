@@ -195,7 +195,7 @@ def test_create_auction(
     assert erc1155_auction.token_amount == auction_token_amount
 
 
-def test_create_action_invalid_token_type(
+def test_create_auction_invalid_token_type(
         erc1155_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         erc721_collection_mint: Callable,
