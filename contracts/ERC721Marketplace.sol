@@ -16,16 +16,16 @@ import "./MarketplaceBase.sol";
 contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace {
     using NFTTradable for NFTAddress;
 
-    /// @notice NftAddress -> Token ID -> Listed item
+    // @notice NftAddress -> Token ID -> Listed item
     mapping(address => mapping(uint256 => Listing)) internal _listings;
 
-    /// @notice NftAddress -> Token ID -> Offeror -> Offer
+    // @notice NftAddress -> Token ID -> Offeror -> Offer
     mapping(address => mapping(uint256 =>  mapping(address => Offer))) internal _offers;
 
-    /// @notice NftAddress -> Token ID -> auction
+    // @notice NftAddress -> Token ID -> auction
     mapping(address => mapping(uint256 => Auction)) internal _auctions;
 
-    /// @notice NftAddress -> Token ID -> highest bid
+    // @notice NftAddress -> Token ID -> highest bid
     mapping(address => mapping(uint256 => HighestBid)) internal _highestBids;
 
     /// @notice Method for listing an NFT
@@ -42,7 +42,7 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
         uint256 startingTime
     ) public whenNotPaused {
         _validateTokenInterface(nftAddress);
-        _validateListingNotExists(getListing(nftAddress.toAddress(), tokenId));
+        _validateListingNotExists(getListing(nftAddress, tokenId));
         _validateNewListingTime(startingTime);
         _validatePaymentTokenIsEnabled(paymentToken);
 
@@ -77,7 +77,7 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
         address newPaymentToken,
         uint256 newPrice
     ) public {
-        _validateListingExists(getListing(nftAddress.toAddress(), tokenId));
+        _validateListingExists(getListing(nftAddress, tokenId));
         _validatePaymentTokenIsEnabled(newPaymentToken);
 
         Listing storage listedItem = _listings[nftAddress.toAddress()][tokenId];
@@ -102,15 +102,16 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
         NFTAddress nftAddress,
         uint256 tokenId
     ) public nonReentrant {
-        Listing memory listing = getListing(nftAddress.toAddress(), tokenId);
+        Listing memory listing = getListing(nftAddress, tokenId);
 
         _validateListingExists(listing);
         _validateOwnership(listing.owner, _msgSender());
 
+        _deleteListing(nftAddress, tokenId);
+
         // transfer token from escrow back to original owner
         nftAddress.toERC721().safeTransferFrom(address(this), listing.owner, tokenId, new bytes(0));
 
-        delete (_listings[nftAddress.toAddress()][tokenId]);
         emit ERC721ListingCanceled(_msgSender(), nftAddress.toAddress(), tokenId);
     }
 
@@ -124,7 +125,7 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
         uint256 requestedUnitPrice,
         address requestedPaymentToken
     ) public nonReentrant whenNotPaused {
-        Listing memory listing = getListing(nftAddress.toAddress(), tokenId);
+        Listing memory listing = getListing(nftAddress, tokenId);
 
         _validateListingExists(listing);
         _validateListingStarted(listing.startingTime);
@@ -132,7 +133,7 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
         _validatePriceMatch(listing.price, requestedUnitPrice);
         _validatePaymentTokenAddressMatch(listing.paymentToken, requestedPaymentToken);
 
-        delete (_listings[nftAddress.toAddress()][tokenId]);
+        _deleteListing(nftAddress, tokenId);
 
         // Calculate and transfer platform fee and royalty
         uint256 finalAmount = listing.price - _calculateAndTakeListingFeeFrom(
@@ -174,7 +175,7 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
         _validateTokenInterface(nftAddress);
         _validatePaymentTokenIsEnabled(paymentToken);
         _validateOfferExpirationTime(expirationTime);
-        _validateOfferNotExists(getOffer(nftAddress.toAddress(), tokenId, _msgSender()));
+        _validateOfferNotExists(getOffer(nftAddress, tokenId, _msgSender()));
 
         // Lock payment token amount in marketplace
         if (_escrowOfferPaymentTokens) {
@@ -203,15 +204,12 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
     /// @notice Method for canceling the offer
     /// @param nftAddress NFT contract address
     /// @param tokenId TokenId
-    function cancelOffer(
-        NFTAddress nftAddress,
-        uint256 tokenId
-    ) public nonReentrant {
-        Offer memory offer = getOffer(nftAddress.toAddress(), tokenId, _msgSender());
+    function cancelOffer(NFTAddress nftAddress, uint256 tokenId) public nonReentrant {
+        Offer memory offer = getOffer(nftAddress, tokenId, _msgSender());
 
         _validateOfferExists(offer);
 
-        delete (_offers[nftAddress.toAddress()][tokenId][_msgSender()]);
+        _deleteOffer(nftAddress, tokenId, _msgSender());
 
         // Return locked payment tokens to offeror
         if (offer.paymentTokensInEscrow) {
@@ -224,17 +222,13 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
     /// @notice Method for accepting the offer
     /// @param nftAddress NFT contract address
     /// @param tokenId TokenId
-    function acceptOffer(
-        NFTAddress nftAddress,
-        uint256 tokenId,
-        address offeror
-    ) public nonReentrant whenNotPaused {
-        Offer memory offer = getOffer(nftAddress.toAddress(), tokenId, offeror);
+    function acceptOffer(NFTAddress nftAddress, uint256 tokenId, address offeror) public nonReentrant whenNotPaused {
+        Offer memory offer = getOffer(nftAddress, tokenId, offeror);
 
         _validateOfferExists(offer);
         _validateOfferNotExpired(offer);
 
-        delete (_offers[nftAddress.toAddress()][tokenId][offeror]);
+        _deleteOffer(nftAddress, tokenId, offeror);
 
         // Calculate and transfer platform fee
         uint256 finalAmount = offer.price - _calculateAndTakeOfferFee(offer);
@@ -304,11 +298,14 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
      */
     function cancelAuction(NFTAddress nftAddress, uint256 tokenId) public nonReentrant {
         Auction memory auction = getAuction(nftAddress, tokenId);
+
         _validateAuctionExists(auction);
         _validateOwnership(auction.owner, _msgSender());
 
         HighestBid memory highestBid = getHighestBid(nftAddress, tokenId);
+
         _validateAuctionHighestBidBelowReservePrice(auction, highestBid);
+
         _deleteAuctionAndTransferToken(nftAddress, auction, tokenId);
 
         emit ERC721AuctionCancelled(nftAddress.toAddress(), _msgSender(), tokenId);
@@ -452,8 +449,8 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
      * @param tokenId Token identifier
      * @return Listing
      */
-    function getListing(address nftAddress, uint256 tokenId) public view returns (Listing memory) {
-        return _listings[nftAddress][tokenId];
+    function getListing(NFTAddress nftAddress, uint256 tokenId) public view returns (Listing memory) {
+        return _listings[nftAddress.toAddress()][tokenId];
     }
 
     /**
@@ -462,8 +459,8 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
      * @param tokenId Token identifier
      * @return Offer
      */
-    function getOffer(address nftAddress, uint256 tokenId, address offeror) public view returns (Offer memory) {
-        return _offers[nftAddress][tokenId][offeror];
+    function getOffer(NFTAddress nftAddress, uint256 tokenId, address offeror) public view returns (Offer memory) {
+        return _offers[nftAddress.toAddress()][tokenId][offeror];
     }
 
     /**
@@ -504,6 +501,27 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
      */
     function hasHighestBid(NFTAddress nftAddress, uint256 tokenId) public view returns (bool) {
         return _highestBidExists(getHighestBid(nftAddress, tokenId));
+    }
+
+    /**
+     * @notice Check given token and owner have any listing
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     * @return bool
+     */
+    function hasListing(NFTAddress nftAddress, uint256 tokenId) public view returns (bool) {
+        return _listingExists(getListing(nftAddress, tokenId));
+    }
+
+    /**
+     * @notice Check given token and offeror have any offer
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     * @param offeror offeror address
+     * @return bool
+     */
+    function hasOffer(NFTAddress nftAddress, uint256 tokenId, address offeror) public view returns (bool) {
+        return _offerExists(getOffer(nftAddress, tokenId, offeror));
     }
 
     ////////////////////////////
@@ -614,12 +632,31 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
     }
 
     /**
+     * @notice Delete listing
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     */
+    function _deleteListing(NFTAddress nftAddress, uint256 tokenId) internal {
+        delete _listings[nftAddress.toAddress()][tokenId];
+    }
+
+    /**
      * @notice Delete highest bid
      * @param nftAddress NFT address
      * @param tokenId Token identifier
      */
     function _deleteHighestBid(NFTAddress nftAddress, uint256 tokenId) internal {
         delete _highestBids[nftAddress.toAddress()][tokenId];
+    }
+
+    /**
+     * @notice Delete offer
+     * @param nftAddress NFT address
+     * @param tokenId Token identifier
+     * @param offeror Offeror address
+     */
+    function _deleteOffer(NFTAddress nftAddress, uint256 tokenId, address offeror) internal {
+        delete _offers[nftAddress.toAddress()][tokenId][offeror];
     }
 
     /**

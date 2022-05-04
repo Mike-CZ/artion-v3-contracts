@@ -450,22 +450,21 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
      * @param nft NFT address
      * @param tokenId Token identifier
      * @param listingId Listing identifier
-     * @param paymentToken Payment token that will be used for listing
+     * @param newPaymentToken Payment token that will be used for listing
      * @param newBuyAmountPrice New listing price
      */
     function updateListing(
         NFTAddress nft,
         uint256 tokenId,
         uint256 listingId,
-        address paymentToken,
+        address newPaymentToken,
         uint256 newBuyAmountPrice
     ) public {
         _validateListingExists(getListing(nft, tokenId, _msgSender(), listingId).listing);
-
-        _validatePaymentTokenIsEnabled(paymentToken);
+        _validatePaymentTokenIsEnabled(newPaymentToken);
 
         ERC1155Listing storage erc1155Listing = _listings[nft.toAddress()][tokenId][_msgSender()][listingId];
-        erc1155Listing.listing.paymentToken = paymentToken;
+        erc1155Listing.listing.paymentToken = newPaymentToken;
         erc1155Listing.listing.price = newBuyAmountPrice;
 
         emit ERC1155ListingUpdated(
@@ -473,7 +472,7 @@ contract ERC1155Marketplace is ERC1155Holder, MarketplaceBase, IERC1155Marketpla
             nft.toAddress(),
             tokenId,
             listingId,
-            paymentToken,
+            newPaymentToken,
             newBuyAmountPrice
         );
     }

@@ -3,7 +3,6 @@ from brownie import PaymentTokenRegistry, ERC721CollectionMock, ERC721Collection
     ERC1155MarketplaceMock, MarketplaceBaseMock, AddressRegistry, ERC20TokenMock, RoyaltyRegistry, accounts, \
     ERC721MarketplaceMock, ZERO_ADDRESS, Wei
 import utils.constants
-from utils.helpers import encode_function_data
 from brownie.network.contract import ProjectContract
 from brownie.network.account import LocalAccount
 from typing import Callable
