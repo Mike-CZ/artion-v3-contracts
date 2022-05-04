@@ -3,10 +3,13 @@
 pragma solidity ^0.8.0;
 
 import "openzeppelin/contracts/utils/Context.sol";
+import "openzeppelin/contracts/utils/Address.sol";
 import "./ERC721Collection.sol";
 
 /// @title Factory contract for deployment of ERC721 collections
 contract ERC721CollectionFactory is Context {
+    using Address for address payable;
+
     /// @notice Events of the contract
     event ERC721CollectionCreated(address creator, address nft);
 
@@ -36,10 +39,9 @@ contract ERC721CollectionFactory is Context {
         address payable mintFeeRecipient,
         bool isPrivate
     ) external payable returns (address) {
-        require(msg.value >= _platformFee, "ERC721CollectionFactory: Insufficient funds to create a collection");
+        require(msg.value >= _platformFee, "ERC721CollectionFactory: Insufficient funds");
 
-        (bool success, ) = _platformFeeRecipient.call{value: msg.value}("");
-        require(success, "ERC721CollectionFactory: Transfer failed");
+        _platformFeeRecipient.sendValue(msg.value);
 
         ERC721Collection nftCollection = new ERC721Collection(
             name,
@@ -48,10 +50,13 @@ contract ERC721CollectionFactory is Context {
             mintFeeRecipient,
             isPrivate
         );
+
         nftCollection.transferOwnership(_msgSender());
 
         address nftCollectionAddress = address(nftCollection);
+
         emit ERC721CollectionCreated(_msgSender(), nftCollectionAddress);
+
         return nftCollectionAddress;
     }
 }

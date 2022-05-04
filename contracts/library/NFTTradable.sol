@@ -52,8 +52,6 @@ library NFTTradable {
         return IERC165(toAddress(nft)).supportsInterface(type(IERC2981Settable).interfaceId);
     }
 
-    // TODO: settable legacy support
-
     /**
      * @notice Convert NFT address into ERC721 instance
      * @param nft NFT address
@@ -89,7 +87,6 @@ library NFTTradable {
     function toERC2981Settable(NFTAddress nft) internal pure returns (IERC2981Settable) {
         return IERC2981Settable(toAddress(nft));
     }
-
 
     /**
      * @notice Convert NFT address into underlying address

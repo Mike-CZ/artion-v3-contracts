@@ -206,7 +206,7 @@ def test_create_listing_payment_token_not_enabled(
 ) -> None:
     """Test listing creation - payment token not enabled"""
     token_id = erc1155_collection_mint_with_approval(seller, ListingParams.token_amount)
-    with reverts('MarketplaceBase: payment token is not enabled'):
+    with reverts('MarketplaceBase: payment token not enabled'):
         erc1155_marketplace_mock.createListing(
             erc1155_collection_mock,
             token_id,
@@ -335,7 +335,7 @@ def test_update_listing_payment_token_not_enabled(
     """Test updating process - payment token not enabled"""
     setup_listing()
 
-    with reverts('MarketplaceBase: payment token is not enabled'):
+    with reverts('MarketplaceBase: payment token not enabled'):
         erc1155_marketplace_mock.updateListing(
             erc1155_collection_mock,
             ListingParams.token_id,

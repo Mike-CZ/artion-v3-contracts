@@ -533,7 +533,7 @@ contract ERC721Marketplace is ERC721Holder, MarketplaceBase, IERC721Marketplace 
      * @param nftAddress NFT instance
      */
     function _validateTokenInterface(NFTAddress nftAddress) internal {
-        require(nftAddress.isERC721(), 'ERC721Marketplace: NFT is not ERC721');
+        require(nftAddress.isERC721(), 'ERC721Marketplace: NFT not ERC721');
     }
 
     /**

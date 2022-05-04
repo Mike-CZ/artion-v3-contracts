@@ -13,6 +13,11 @@ import "./library/NFTTradable.sol";
 contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
     using NFTTradable for NFTAddress;
 
+    struct RoyaltyInfo {
+        address receiver;
+        uint96 royaltyFraction;
+    }
+
     /**
     * @notice nft address => token id => royalty info
     */
@@ -49,7 +54,6 @@ contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
      */
     function setDefaultRoyalty(NFTAddress nft, address recipient, uint96 royaltyFraction) onlyOwner public {
         require(! nft.isERC2981Settable(), 'RoyaltyRegistry: supports royalty setter');
-        // TODO: legacy collection
 
         require(! _royaltyInfoExists(_getDefaultRoyaltyInfo(nft)), 'RoyaltyRegistry: royalty set');
         require(royaltyFraction <= ROYALTY_PERCENT_DENOMINATOR, 'RoyaltyRegistry: royalty too high');
@@ -62,7 +66,6 @@ contract RoyaltyRegistry is Ownable, IRoyaltyRegistry {
      */
     function setTokenRoyalty(NFTAddress nft, uint256 tokenId, address recipient, uint96 royaltyFraction) public {
         require(! nft.isERC2981Settable(), 'RoyaltyRegistry: supports royalty setter');
-        // TODO: legacy collection
 
         _validateTokenOwner(nft, tokenId);
 

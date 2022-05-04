@@ -44,7 +44,7 @@ def test_mint(erc721_collection_mock: ProjectContract, user: LocalAccount) -> No
 
 def test_mint_insufficient_funds(erc721_collection_mock: ProjectContract, user: LocalAccount) -> None:
     """Test mint insufficient funds"""
-    with reverts('ERC721Collection: insufficient funds to mint'):
+    with reverts('ERC721Collection: insufficient funds'):
         erc721_collection_mock.mint(
             user.address, 'some+uri', user.address, 0, {'from': user, 'amount': COLLECTION_MINT_FEE - 1}
         )
@@ -52,7 +52,7 @@ def test_mint_insufficient_funds(erc721_collection_mock: ProjectContract, user: 
 
 def test_mint_empty_uri(erc721_collection_mock: ProjectContract, user: LocalAccount) -> None:
     """Test mint empty uri"""
-    with reverts('ERC721Collection: token URI for minting is empty'):
+    with reverts('ERC721Collection: token URI empty'):
         erc721_collection_mock.mint(
             user.address, '', user.address, 0, {'from': user, 'amount': COLLECTION_MINT_FEE}
         )
@@ -68,7 +68,7 @@ def test_mint_private(erc721_collection_private_mock: ProjectContract, owner: Lo
 
 def test_mint_private_non_owner(erc721_collection_private_mock: ProjectContract, user: LocalAccount) -> None:
     """Test private minting for non-owner"""
-    with reverts('ERC721Collection: only owner can mint tokens'):
+    with reverts('ERC721Collection: only owner'):
         erc721_collection_private_mock.mint(
             user.address, 'some+uri', user.address, 0, {'from': user, 'amount': COLLECTION_MINT_FEE}
         )
@@ -89,7 +89,7 @@ def test_burn_unauthorized(
 ) -> None:
     """Test unauthorized burning"""
     token_id = erc721_collection_mint(user.address)
-    with reverts('ERC721Collection: only owner or approved can manipulate with token'):
+    with reverts('ERC721Collection: only owner or approved'):
         erc721_collection_mock.burn(token_id, {'from': user_2})
 
 
@@ -128,7 +128,7 @@ def test_set_token_royalty_unauthorized(
 ) -> None:
     """Test set token royalty - unauthorized"""
     token_id = erc721_collection_mint(user.address)
-    with reverts('ERC721Collection: only owner or approved can manipulate with token'):
+    with reverts('ERC721Collection: only owner or approved'):
         erc721_collection_mock.setTokenRoyalty(token_id, user.address, 500, {'from': user_2})
 
 
@@ -174,7 +174,7 @@ def test_update_token_royalty_recipient_unauthorized(
 ) -> None:
     """Test update token royalty recipient - unauthorized"""
     token_id = erc721_collection_mint(user.address)
-    with reverts('ERC721Collection: only owner or approved can manipulate with token'):
+    with reverts('ERC721Collection: only owner or approved'):
         erc721_collection_mock.updateTokenRoyaltyRecipient(token_id, user.address, {'from': user_2})
 
 

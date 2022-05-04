@@ -157,7 +157,7 @@ def test_listing_not_erc721(
     """Test listing ERC1155 token in ERC721 marketplace"""
     token_id = 1
 
-    with reverts('ERC721Marketplace: NFT is not ERC721'):
+    with reverts('ERC721Marketplace: NFT not ERC721'):
         erc721_marketplace_mock.createListing(
             erc1155_collection_mock,
             token_id,
@@ -444,7 +444,7 @@ def test_buy_listed_token_before_start_time(
     payment_token.approve(erc721_marketplace_mock, ListingParams.price, {"from": buyer})
 
     # try buying listed NFT
-    with reverts('MarketplaceBase: listing has not started yet'):
+    with reverts('MarketplaceBase: listing has not started'):
         erc721_marketplace_mock.buyListedItem(
             erc721_collection_mock,
             token_id,

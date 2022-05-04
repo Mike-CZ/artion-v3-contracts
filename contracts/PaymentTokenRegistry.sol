@@ -31,7 +31,7 @@ contract PaymentTokenRegistry is Ownable, IPaymentTokenRegistry {
      * @dev See {IPaymentTokenRegistry-remove}.
      */
     function remove(address token) public onlyOwner {
-        require(_enabled[token], "PaymentTokenRegistry: payment token does not exist");
+        require(_enabled[token], "PaymentTokenRegistry: payment token not exists");
         _enabled[token] = false;
         emit PaymentTokenRemoved(token);
     }

@@ -27,7 +27,7 @@ class StateMachine:
             self.registry.remove(st_address, {'from': self.owner})
             self.addresses[st_address] = False
         else:
-            with reverts("PaymentTokenRegistry: payment token does not exist"):
+            with reverts("PaymentTokenRegistry: payment token not exists"):
                 self.registry.remove(st_address, {'from': self.owner})
 
     def invariant_address_status(self):

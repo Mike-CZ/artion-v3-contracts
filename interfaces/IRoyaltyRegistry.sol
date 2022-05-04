@@ -9,11 +9,6 @@ import "../contracts/library/NFTTradable.sol";
 * @notice Module which provides royalty functionality.
 */
 interface IRoyaltyRegistry {
-    struct RoyaltyInfo {
-        address receiver;
-        uint96 royaltyFraction;
-    }
-
     /**
      * @notice Returns how much royalty is owed and to whom, based on a sale price that may be denominated in any unit
      * of exchange. The royalty amount is denominated and should be payed in that same unit of exchange.

@@ -189,7 +189,7 @@ def test_create_auction_invalid_token_type(
 ) -> None:
     """Test auction creation with invalid token type"""
     token_id = erc721_collection_mint(seller)
-    with reverts('ERC721Marketplace: NFT is not ERC721'):
+    with reverts('ERC721Marketplace: NFT not ERC721'):
         erc721_marketplace_mock.createAuction(
             erc1155_collection_mock,
             token_id,
@@ -212,7 +212,7 @@ def test_create_action_invalid_payment_token(
 ) -> None:
     """Test auction creation with invalid payment token"""
     token_id = erc721_collection_mint_with_approval(seller)
-    with reverts('MarketplaceBase: payment token is not enabled'):
+    with reverts('MarketplaceBase: payment token not enabled'):
         erc721_marketplace_mock.createAuction(
             erc721_collection_mock,
             token_id,
@@ -745,7 +745,7 @@ def test_finish_auction_without_bid(
 ) -> None:
     """Test finish auction when bid does not exist"""
     token_id = setup_auction(status=AuctionStatus.ENDED)
-    with reverts('MarketplaceBase: highest bid not exist'):
+    with reverts('MarketplaceBase: highest bid not exists'):
         erc721_marketplace_mock.finishAuction(
             erc721_collection_mock, token_id, {'from': bidder}
         )

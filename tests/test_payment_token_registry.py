@@ -51,11 +51,11 @@ def test_remove_non_existent_token(
         token_address: LocalAccount,
         owner: LocalAccount
 ) -> None:
-    with reverts("PaymentTokenRegistry: payment token does not exist"):
+    with reverts("PaymentTokenRegistry: payment token not exists"):
         payment_token_registry.remove(token_address, {"from": owner})
 
 
 def test_remove_already_removed_token(payment_token_registry: ProjectContract, owner: LocalAccount) -> None:
     payment_token_registry.remove(TOMB_TOKEN, {"from": owner})
-    with reverts("PaymentTokenRegistry: payment token does not exist"):
+    with reverts("PaymentTokenRegistry: payment token not exists"):
         payment_token_registry.remove(TOMB_TOKEN, {"from": owner})

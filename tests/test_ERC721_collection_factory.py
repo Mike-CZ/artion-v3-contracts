@@ -6,7 +6,7 @@ class TestCreateERC721Collection:
     create_collection_fee = Wei("5 ether")  # fee recipient is accounts[0]
 
     def test_insufficient_funds(self, erc721_collection_factory: ProjectContract) -> None:
-        with reverts("ERC721CollectionFactory: Insufficient funds to create a collection"):
+        with reverts("ERC721CollectionFactory: Insufficient funds"):
             erc721_collection_factory.createERC721Collection(
                 "TestToken",
                 "TT",

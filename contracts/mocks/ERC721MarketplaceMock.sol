@@ -19,20 +19,4 @@ contract ERC721MarketplaceMock is ERC721Marketplace {
             nft, tokenId, owner, paymentToken, reservePrice, startTime, endTime, isMinBidReservePrice
         );
     }
-
-    /*
-    function createListingAndTransferToken(
-        NFTAddress nft,
-        uint256 tokenId,
-        address owner,
-        address paymentToken,
-        uint256 buyTokenAmount,
-        uint256 buyAmountPrice,
-        uint256 listingId,
-        uint256 startingTime
-    ) public {
-        _createListingAndTransferToken(
-            nft, tokenId, owner, paymentToken, buyTokenAmount, buyAmountPrice, listingId, startingTime
-        );
-    }*/
 }

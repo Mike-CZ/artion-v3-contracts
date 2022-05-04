@@ -48,7 +48,7 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
         address operator = _msgSender();
         require(
             owner == operator || getApproved(tokenId) == operator || isApprovedForAll(owner, operator),
-            "ERC721Collection: only owner or approved can manipulate with token"
+            "ERC721Collection: only owner or approved"
         );
         _;
     }
@@ -69,12 +69,12 @@ contract ERC721Collection is Ownable, ERC2981Settable, ERC721URIStorage {
     ) external payable returns (uint256) {
         // only owner can mint tokens when collection is marked as private
         if (_isPrivate) {
-            require(owner() == _msgSender(), "ERC721Collection: only owner can mint tokens");
+            require(owner() == _msgSender(), "ERC721Collection: only owner");
         }
 
         // validate parameters
-        require(msg.value >= _mintFee, "ERC721Collection: insufficient funds to mint");
-        require(bytes(tokenUri).length > 0, "ERC721Collection: token URI for minting is empty");
+        require(msg.value >= _mintFee, "ERC721Collection: insufficient funds");
+        require(bytes(tokenUri).length > 0, "ERC721Collection: token URI empty");
 
         // mint token
         uint256 tokenId = _mintAndGetTokenId(tokenRecipient, tokenUri);

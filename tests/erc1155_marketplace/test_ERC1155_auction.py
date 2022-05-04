@@ -230,7 +230,7 @@ def test_create_action_invalid_payment_token(
 ) -> None:
     """Test auction creation with invalid payment token"""
     token_id = erc1155_collection_mint_with_approval(seller, AuctionParams.token_amount)
-    with reverts('MarketplaceBase: payment token is not enabled'):
+    with reverts('MarketplaceBase: payment token not enabled'):
         erc1155_marketplace_mock.createAuction(
             erc1155_collection_mock,
             token_id,
@@ -825,7 +825,7 @@ def test_finish_auction_without_bid(
 ) -> None:
     """Test finish auction when bid does not exist"""
     setup_auction(status=AuctionStatus.ENDED)
-    with reverts('MarketplaceBase: highest bid not exist'):
+    with reverts('MarketplaceBase: highest bid not exists'):
         erc1155_marketplace_mock.finishAuction(
             erc1155_collection_mock, AuctionParams.token_id, seller, AuctionParams.auction_id, {'from': bidder}
         )

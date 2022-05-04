@@ -153,7 +153,7 @@ def test_create_offer_invalid_payment_token(
     payment_token = ZERO_ADDRESS
 
     # try to create offer
-    with reverts('MarketplaceBase: payment token is not enabled'):
+    with reverts('MarketplaceBase: payment token not enabled'):
         erc721_marketplace_mock.createOffer(
             erc721_collection_mock,
             token_id,
@@ -174,7 +174,7 @@ def test_create_offer_invalid_nft_contract(
     token_id = 1
 
     # try to create offer
-    with reverts('ERC721Marketplace: NFT is not ERC721'):
+    with reverts('ERC721Marketplace: NFT not ERC721'):
         erc721_marketplace_mock.createOffer(
             erc1155_collection_mock,
             token_id,

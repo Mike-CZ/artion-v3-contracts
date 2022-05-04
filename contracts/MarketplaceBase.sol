@@ -295,6 +295,7 @@ abstract contract MarketplaceBase is
         }
 
         _sendPayTokenAmount(auction.paymentToken, _feeRecipient, fee);
+
         return fee;
     }
 
@@ -318,6 +319,7 @@ abstract contract MarketplaceBase is
         }
 
         _transferPayTokenAmount(paymentToken, from, _feeRecipient, fee);
+
         return fee;
     }
 
@@ -364,6 +366,7 @@ abstract contract MarketplaceBase is
             _sendPayTokenAmount(paymentToken, recipient, royaltyAmount);
             return royaltyAmount;
         }
+
         return 0;
     }
 
@@ -388,6 +391,7 @@ abstract contract MarketplaceBase is
             _transferPayTokenAmount(paymentToken, from, recipient, royaltyAmount);
             return royaltyAmount;
         }
+
         return 0;
     }
 
@@ -439,7 +443,7 @@ abstract contract MarketplaceBase is
     function _validatePaymentTokenIsEnabled(address paymentToken) internal {
         require(
             _getPaymentTokenRegistry().isEnabled(paymentToken),
-            'MarketplaceBase: payment token is not enabled'
+            'MarketplaceBase: payment token not enabled'
         );
     }
 
@@ -543,7 +547,7 @@ abstract contract MarketplaceBase is
      * @param highestBid Highest bid to validate
      */
     function _validateHighestBidExists(HighestBid memory highestBid) internal pure {
-        require(_highestBidExists(highestBid), 'MarketplaceBase: highest bid not exist');
+        require(_highestBidExists(highestBid), 'MarketplaceBase: highest bid not exists');
     }
 
     /**
@@ -723,7 +727,7 @@ abstract contract MarketplaceBase is
      * @param startTime Start time as unix time
      */
     function _validateListingStarted(uint256 startTime) internal view {
-        require(_getNow() >= startTime, "MarketplaceBase: listing has not started yet");
+        require(_getNow() >= startTime, "MarketplaceBase: listing has not started");
     }
 
     /**

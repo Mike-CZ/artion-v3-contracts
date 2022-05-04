@@ -210,7 +210,7 @@ def test_create_offer_invalid_payment_token(
         offeror: LocalAccount
 ):
     """Test offer creation with invalid payment token"""
-    with reverts('MarketplaceBase: payment token is not enabled'):
+    with reverts('MarketplaceBase: payment token not enabled'):
         erc1155_marketplace_mock.createOffer(
             erc1155_collection_mock,
             OfferParams.token_id,
