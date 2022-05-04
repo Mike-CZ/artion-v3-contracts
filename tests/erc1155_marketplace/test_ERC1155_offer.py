@@ -152,7 +152,7 @@ def test_create_offer(
     assert tx.events["ERC1155OfferCreated"]["paymentToken"] == payment_token.address
     assert tx.events["ERC1155OfferCreated"]["price"] == price
     assert tx.events["ERC1155OfferCreated"]["expirationTime"] == expiration_time
-    assert tx.events["ERC1155OfferCreated"]["isPayTokenInEscrow"] is escrow_tokens
+    assert tx.events["ERC1155OfferCreated"]["isPayTokenInEscrow"] == escrow_tokens
 
     # assert tokens transferred
     if escrow_tokens:
