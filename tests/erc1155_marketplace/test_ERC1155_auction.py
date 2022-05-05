@@ -221,7 +221,7 @@ def test_create_auction_invalid_token_type(
 
 @given(token_address=strategy('address'))
 @settings(max_examples=1)
-def test_create_action_invalid_payment_token(
+def test_create_auction_invalid_payment_token(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         erc1155_collection_mint_with_approval: Callable,
@@ -245,7 +245,7 @@ def test_create_action_invalid_payment_token(
         )
 
 
-def test_create_action_invalid_time_maximum_duration(
+def test_create_auction_invalid_time_maximum_duration(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         erc1155_collection_mint_with_approval: Callable,
@@ -269,7 +269,7 @@ def test_create_action_invalid_time_maximum_duration(
         )
 
 
-def test_create_action_invalid_time_minimum_duration(
+def test_create_auction_invalid_time_minimum_duration(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         erc1155_collection_mint_with_approval: Callable,
@@ -293,7 +293,7 @@ def test_create_action_invalid_time_minimum_duration(
         )
 
 
-def test_create_action_already_exists(
+def test_create_auction_already_exists(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         payment_token: ProjectContract,
@@ -597,7 +597,7 @@ def test_cancel_auction(
     ) is False
 
 
-def test_cancel_auction_action_not_exist(
+def test_cancel_auction_auction_not_exist(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         seller: LocalAccount

@@ -203,7 +203,7 @@ def test_create_auction_invalid_token_type(
 
 
 @given(token_address=strategy('address'))
-def test_create_action_invalid_payment_token(
+def test_create_auction_invalid_payment_token(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         erc721_collection_mint_with_approval: Callable,
@@ -225,7 +225,7 @@ def test_create_action_invalid_payment_token(
         )
 
 
-def test_create_action_invalid_time_maximum_duration(
+def test_create_auction_invalid_time_maximum_duration(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         erc721_collection_mint_with_approval: Callable,
@@ -247,7 +247,7 @@ def test_create_action_invalid_time_maximum_duration(
         )
 
 
-def test_create_action_invalid_time_minimum_duration(
+def test_create_auction_invalid_time_minimum_duration(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         erc721_collection_mint_with_approval: Callable,
@@ -269,7 +269,7 @@ def test_create_action_invalid_time_minimum_duration(
         )
 
 
-def test_create_action_already_exists(
+def test_create_auction_already_exists(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         payment_token: ProjectContract,
@@ -538,7 +538,7 @@ def test_cancel_auction(
     assert erc721_marketplace_mock.hasHighestBid(erc721_collection_mock, token_id) is False
 
 
-def test_cancel_auction_action_not_exist(
+def test_cancel_auction_auction_not_exist(
         erc721_marketplace_mock: ProjectContract,
         erc721_collection_mock: ProjectContract,
         seller: LocalAccount
@@ -547,6 +547,21 @@ def test_cancel_auction_action_not_exist(
     with reverts('MarketplaceBase: auction not exists'):
         erc721_marketplace_mock.cancelAuction(
             erc721_collection_mock, AuctionParams.token_id, {'from': seller}
+        )
+
+
+def test_cancel_auction_auction_not_owner(
+        erc721_marketplace_mock: ProjectContract,
+        erc721_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        bidder: LocalAccount
+) -> None:
+    """Test cancelling auction when not owner"""
+    token_id = setup_auction()
+
+    with reverts('MarketplaceBase: not owner'):
+        erc721_marketplace_mock.cancelAuction(
+            erc721_collection_mock, token_id, {'from': bidder}
         )
 
 
@@ -859,6 +874,24 @@ def test_update_auction_reserve_price_auction_not_exist(
             AuctionParams.token_id,
             AuctionParams.reserve_price - 1,
             {'from': seller}
+        )
+
+
+def test_update_auction_reserve_price_auction_not_owner(
+        erc721_marketplace_mock: ProjectContract,
+        erc721_collection_mock: ProjectContract,
+        setup_auction: Callable,
+        bidder: LocalAccount
+) -> None:
+    """Test cancelling auction when not owner"""
+    token_id = setup_auction()
+
+    with reverts('MarketplaceBase: not owner'):
+        erc721_marketplace_mock.updateAuctionReservePrice(
+            erc721_collection_mock,
+            token_id,
+            AuctionParams.reserve_price - 1,
+            {'from': bidder}
         )
 
 
