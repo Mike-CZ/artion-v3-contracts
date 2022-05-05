@@ -225,7 +225,7 @@ def test_create_auction_invalid_payment_token(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
         erc1155_collection_mint_with_approval: Callable,
-        token_address: ProjectContract,
+        token_address: LocalAccount,
         seller: LocalAccount
 ) -> None:
     """Test auction creation with invalid payment token"""
