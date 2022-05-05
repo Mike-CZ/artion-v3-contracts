@@ -516,6 +516,46 @@ def test_buy_listed_nft_partially(
     assert tx.events["ERC1155ListedItemSold"]["price"] == price
 
 
+def test_buy_listed_nft_by_units(
+        setup_listing: Callable,
+        erc1155_marketplace_mock: ProjectContract,
+        erc1155_collection_mock: ProjectContract,
+        payment_token: ProjectContract,
+        buyer: LocalAccount,
+        seller: LocalAccount
+) -> None:
+    """Test buy listed nft by units"""
+    setup_listing()
+
+    available_units = int(ListingParams.token_amount / ListingParams.unit_size)
+    remaining_amount = ListingParams.token_amount
+
+    for _ in range(available_units):
+        payment_token.approveInternal(buyer, erc1155_marketplace_mock, ListingParams.unit_price)
+        tx = erc1155_marketplace_mock.buyListedItem(
+            erc1155_collection_mock,
+            ListingParams.token_id,
+            seller,
+            ListingParams.listing_id,
+            ListingParams.unit_price,
+            payment_token,
+            1,
+            {"from": buyer}
+        )
+
+        remaining_amount -= ListingParams.unit_size
+
+        assert tx.events["ERC1155ListedItemSold"] is not None
+        assert tx.events["ERC1155ListedItemSold"]["amount"] == ListingParams.unit_size
+        assert tx.events["ERC1155ListedItemSold"]["remainingAmount"] == remaining_amount
+        assert tx.events["ERC1155ListedItemSold"]["price"] == ListingParams.unit_price
+
+    # validate listing successfully deleted
+    assert erc1155_marketplace_mock.hasListing(
+        erc1155_collection_mock, ListingParams.token_id, seller, ListingParams.listing_id
+    ) is False
+
+
 def test_buy_listed_nft_not_listed(
         erc1155_marketplace_mock: ProjectContract,
         erc1155_collection_mock: ProjectContract,
